@@ -1,0 +1,17 @@
+name: Bash test
+
+on:
+  workflow_dispatch:
+
+jobs:
+  run-bash:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repo
+        uses: actions/checkout@v4
+
+      - name: Run bash commands
+        run: |
+          echo "Hallo dd, dit is bash op GitHub"
+          ls -la
+          pwd
