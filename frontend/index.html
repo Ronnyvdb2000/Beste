@@ -1,0 +1,26 @@
+<!DOCTYPE html>
+<html lang="nl">
+<head>
+  <meta charset="UTF-8">
+  <title>Stock App - Login</title>
+  <link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+  <h1>Stock App</h1>
+  <form id="login-form">
+    <label>Gebruikersnaam</label>
+    <input type="text" id="username">
+    <label>Wachtwoord</label>
+    <input type="password" id="password">
+    <button type="submit">Login</button>
+  </form>
+
+  <script>
+    document.getElementById('login-form').addEventListener('submit', (e) => {
+      e.preventDefault();
+      // hier kun je later echte auth toevoegen
+      window.location.href = 'stock.html';
+    });
+  </script>
+</body>
+</html>
