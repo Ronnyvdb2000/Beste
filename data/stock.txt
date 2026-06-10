@@ -1,4 +1,0 @@
-id,productnaam,leverancier,eenheid,minimum_stock,huidige_stock
-1,Koffiebonen A,Leverancier X,kg,10,6
-2,Suiker,Leverancier X,kg,5,2
-3,Melk,Leverancier Y,l,20,18
