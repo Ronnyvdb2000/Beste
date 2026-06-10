@@ -1,0 +1,6 @@
+git init
+git add .
+git commit -m "Initial stock app"
+git branch -M main
+git remote add origin git@github.com:<jouw-account>/stock-app.git
+git push -u origin main
