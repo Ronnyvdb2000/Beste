@@ -1,4 +1,4 @@
-📦 Stock App
+📦 Stock App 
 Voorraadbeheer • Verbruik • Bestelvoorstellen • Bestellingen • Historiek
 Een moderne webapplicatie voor intern voorraadbeheer.
 De app combineert een lichte frontend met een Node.js backend en SQLite‑database.
