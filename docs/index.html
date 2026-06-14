@@ -1,6 +1,6 @@
 <!DOCTYPE html>
 <html lang="nl">
-<head> 
+<head>
   <meta charset="UTF-8">
   <title>Stock App - Login</title>
   <link rel="stylesheet" href="css/style.css">
@@ -16,25 +16,33 @@
     <input type="password" id="password" required>
 
     <button type="submit">Login</button>
+    <p id="error-msg" style="color:red; display:none;">Foutieve gebruikersnaam of wachtwoord</p>
   </form>
 
+  <script src="js/api.js"></script>
   <script>
-    // ⭐ Pas deze waarden aan naar jouw gewenste login
-    const CORRECT_USER = "caroline";
-    const CORRECT_PASS = "9996Gamo!";
+    // Redirect als al ingelogd
+    if (localStorage.getItem('loggedIn') === 'true') {
+      window.location.href = 'stock.html';
+    }
 
-    document.getElementById('login-form').addEventListener('submit', (e) => {
+    document.getElementById('login-form').addEventListener('submit', async (e) => {
       e.preventDefault();
 
-      const user = document.getElementById('username').value.trim();
-      const pass = document.getElementById('password').value.trim();
+      const username = document.getElementById('username').value.trim();
+      const password = document.getElementById('password').value.trim();
 
-      if (user === CORRECT_USER && pass === CORRECT_PASS) {
-        // login geslaagd
-        localStorage.setItem("loggedIn", "true");
-        window.location.href = "stock.html";
-      } else {
-        alert("Foutieve gebruikersnaam of wachtwoord");
+      try {
+        const result = await apiPost('/login', { username, password });
+
+        if (result.success) {
+          localStorage.setItem('loggedIn', 'true');
+          window.location.href = 'stock.html';
+        } else {
+          document.getElementById('error-msg').style.display = 'block';
+        }
+      } catch (err) {
+        document.getElementById('error-msg').style.display = 'block';
       }
     });
   </script>
