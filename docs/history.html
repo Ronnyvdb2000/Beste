@@ -4,65 +4,118 @@
   <meta charset="UTF-8">
   <title>Stock App - Historiek</title>
   <link rel="stylesheet" href="css/style.css">
+  <style>
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      margin-top: 1rem;
+      font-size: 0.95rem;
+    }
+    th, td {
+      border: 1px solid #ddd;
+      padding: 8px 10px;
+      text-align: center;
+    }
+    th {
+      background-color: #3b82f6;
+      color: white;
+      font-weight: bold;
+    }
+    tr:nth-child(even) { background-color: #f1f5f9; }
+    td:nth-child(2) { text-align: left; }
+    .badge-ja {
+      background-color: #d1fae5;
+      color: #065f46;
+      padding: 2px 8px;
+      border-radius: 12px;
+      font-weight: bold;
+      font-size: 0.85rem;
+    }
+    .badge-nee {
+      background-color: #fee2e2;
+      color: #991b1b;
+      padding: 2px 8px;
+      border-radius: 12px;
+      font-weight: bold;
+      font-size: 0.85rem;
+    }
+    .tabel-wrapper {
+      background: white;
+      border-radius: 10px;
+      box-shadow: 0 1px 4px rgba(0,0,0,0.1);
+      padding: 1rem;
+      overflow-x: auto;
+    }
+    .nav-links { margin-top: 2rem; display: flex; gap: 1rem; }
+    .nav-links a { color: #3b82f6; text-decoration: none; font-weight: 500; }
+    .nav-links a:hover { text-decoration: underline; }
+    #laad-msg { color: #888; margin-top: 1rem; }
+  </style>
 </head>
-
 <body>
-
-  <!-- ⭐ LOGIN BEVEILIGING -->
   <script>
     if (localStorage.getItem("loggedIn") !== "true") {
       window.location.href = "index.html";
     }
   </script>
 
-  <h1>Historiek</h1>
+  <h1>📜 Historiek</h1>
 
-  <table>
-    <thead>
-      <tr>
-        <th>ID</th>
-        <th>Product</th>
-        <th>Week</th>
-        <th>Verbruik</th>
-        <th>Voorstel</th>
-        <th>Definitief</th>
-        <th>Email</th>
-        <th>Datum</th>
-      </tr>
-    </thead>
-    <tbody id="history-body"></tbody>
-  </table>
+  <div class="tabel-wrapper">
+    <table>
+      <thead>
+        <tr>
+          <th>#</th>
+          <th>Product</th>
+          <th>Week</th>
+          <th>Voorstel</th>
+          <th>Definitief</th>
+          <th>Verstuurd</th>
+        </tr>
+      </thead>
+      <tbody id="history-body">
+        <tr><td colspan="6" id="laad-msg">Historiek laden...</td></tr>
+      </tbody>
+    </table>
+  </div>
 
-  <br>
-  <a href="stock.html">Terug naar stock</a>
+  <div class="nav-links">
+    <a href="stock.html">📦 Stock ingeven</a>
+    <a href="order.html">📋 Bestelvoorstel</a>
+    <a href="index.html" onclick="localStorage.removeItem('loggedIn')">🚪 Uitloggen</a>
+  </div>
 
   <script src="js/api.js"></script>
-
   <script>
     async function loadHistory() {
-      const history = await apiGet('/history');
       const tbody = document.getElementById('history-body');
+      try {
+        const rows = await apiGet('/history');
 
-      history.forEach(item => {
-        const tr = document.createElement('tr');
+        if (rows.length === 0) {
+          tbody.innerHTML = '<tr><td colspan="6" style="text-align:center; color:#888;">Nog geen bestellingen gevonden.</td></tr>';
+          return;
+        }
 
-        tr.innerHTML = `
-          <td>${item.id}</td>
-          <td>${item.product_naam}</td>
-          <td>${item.week}</td>
-          <td>${item.verbruik}</td>
-          <td>${item.voorstel}</td>
-          <td>${item.definitief ?? '-'}</td>
-          <td>${item.email_leverancier ?? '-'}</td>
-          <td>${item.datum}</td>
-        `;
-
-        tbody.appendChild(tr);
-      });
+        tbody.innerHTML = '';
+        rows.forEach(row => {
+          const tr = document.createElement('tr');
+          tr.innerHTML = `
+            <td>${row.id}</td>
+            <td>${row.naam}</td>
+            <td>${row.week}</td>
+            <td>${row.voorstel ?? '-'}</td>
+            <td>${row.definitief ?? '-'}</td>
+            <td><span class="${row.verstuurd ? 'badge-ja' : 'badge-nee'}">${row.verstuurd ? 'Ja' : 'Nee'}</span></td>
+          `;
+          tbody.appendChild(tr);
+        });
+      } catch (err) {
+        tbody.innerHTML = '<tr><td colspan="6" style="color:red; text-align:center;">❌ Fout bij laden historiek.</td></tr>';
+      }
     }
 
     loadHistory();
   </script>
-
 </body>
 </html>
