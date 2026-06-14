@@ -1,0 +1,68 @@
+<!DOCTYPE html>
+<html lang="nl">
+<head>
+  <meta charset="UTF-8">
+  <title>Stock App - Historiek</title>
+  <link rel="stylesheet" href="css/style.css">
+</head>
+
+<body>
+
+  <!-- ⭐ LOGIN BEVEILIGING -->
+  <script>
+    if (localStorage.getItem("loggedIn") !== "true") {
+      window.location.href = "index.html";
+    }
+  </script>
+
+  <h1>Historiek</h1>
+
+  <table>
+    <thead>
+      <tr>
+        <th>ID</th>
+        <th>Product</th>
+        <th>Week</th>
+        <th>Verbruik</th>
+        <th>Voorstel</th>
+        <th>Definitief</th>
+        <th>Email</th>
+        <th>Datum</th>
+      </tr>
+    </thead>
+    <tbody id="history-body"></tbody>
+  </table>
+
+  <br>
+  <a href="stock.html">Terug naar stock</a>
+
+  <script src="js/api.js"></script>
+
+  <script>
+    async function loadHistory() {
+      const history = await apiGet('/history');
+      const tbody = document.getElementById('history-body');
+
+      history.forEach(item => {
+        const tr = document.createElement('tr');
+
+        tr.innerHTML = `
+          <td>${item.id}</td>
+          <td>${item.product_naam}</td>
+          <td>${item.week}</td>
+          <td>${item.verbruik}</td>
+          <td>${item.voorstel}</td>
+          <td>${item.definitief ?? '-'}</td>
+          <td>${item.email_leverancier ?? '-'}</td>
+          <td>${item.datum}</td>
+        `;
+
+        tbody.appendChild(tr);
+      });
+    }
+
+    loadHistory();
+  </script>
+
+</body>
+</html>
