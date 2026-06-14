@@ -1,0 +1,154 @@
+<!DOCTYPE html>
+<html lang="nl">
+<head>
+  <meta charset="UTF-8">
+  <title>Stock App - Stock Ingeven</title>
+  <link rel="stylesheet" href="css/style.css">
+</head>
+
+<body>
+
+  <!-- ⭐ LOGIN BEVEILIGING -->
+  <script>
+    if (localStorage.getItem("loggedIn") !== "true") {
+      window.location.href = "index.html";
+    }
+  </script>
+
+  <h1>Stock Ingeven</h1>
+
+  <form id="stock-form">
+    <label>Product</label>
+    <select id="product"></select>
+
+    <label>Weeknummer</label>
+    <input type="number" id="week" required>
+
+    <label>Stock begin</label>
+    <input type="number" id="stock_aanvang" required>
+
+    <label>Stock einde</label>
+    <input type="number" id="stock_einde" required>
+
+    <button type="submit">Opslaan</button>
+  </form>
+
+  <div id="result"></div>
+
+  <hr>
+
+  <h2>Bestelvoorstel</h2>
+
+  <form id="proposal-form">
+    <label>Product</label>
+    <select id="product-proposal"></select>
+
+    <label>Weeknummer</label>
+    <input type="number" id="week-proposal" required>
+
+    <button type="submit">Maak voorstel</button>
+  </form>
+
+  <div id="proposal-result"></div>
+
+  <hr>
+
+  <h2>Definitieve bestelling</h2>
+
+  <form id="final-form">
+    <label>Order ID</label>
+    <input type="number" id="order-id" required>
+
+    <label>Definitieve hoeveelheid</label>
+    <input type="number" id="definitief" required>
+
+    <label>Email leverancier</label>
+    <input type="email" id="email" required>
+
+    <button type="submit">Verstuur bestelling</button>
+  </form>
+
+  <div id="final-result"></div>
+
+  <hr>
+
+  <a href="history.html">Bekijk historiek</a>
+
+  <script src="js/api.js"></script>
+
+  <script>
+    // ⭐ PRODUCTEN LADEN
+    async function loadProducts() {
+      const products = await apiGet('/products');
+
+      const select1 = document.getElementById('product');
+      const select2 = document.getElementById('product-proposal');
+
+      products.forEach(p => {
+        const opt = document.createElement('option');
+        opt.value = p.id;
+        opt.textContent = p.naam;
+
+        const opt2 = opt.cloneNode(true);
+
+        select1.appendChild(opt);
+        select2.appendChild(opt2);
+      });
+    }
+
+    loadProducts();
+
+    // ⭐ STOCK INGAVE
+    document.getElementById('stock-form').addEventListener('submit', async (e) => {
+      e.preventDefault();
+
+      const data = {
+        product_id: document.getElementById('product').value,
+        week: document.getElementById('week').value,
+        stock_aanvang: document.getElementById('stock_aanvang').value,
+        stock_einde: document.getElementById('stock_einde').value
+      };
+
+      const res = await apiPost('/stock', data);
+      document.getElementById('result').textContent =
+        `Verbruik: ${res.verbruik}`;
+    });
+
+    // ⭐ BESTELVOORSTEL
+    document.getElementById('proposal-form').addEventListener('submit', async (e) => {
+      e.preventDefault();
+
+      const data = {
+        product_id: document.getElementById('product-proposal').value,
+        week: document.getElementById('week-proposal').value
+      };
+
+      const res = await apiPost('/order/proposal', data);
+      document.getElementById('proposal-result').textContent =
+        `Voorstel: ${res.voorstel} (Order ID: ${res.id})`;
+    });
+
+    // ⭐ DEFINITIEVE BESTELLING
+    document.getElementById('final-form').addEventListener('submit', async (e) => {
+      e.preventDefault();
+
+      const data = {
+        order_id: document.getElementById('order-id').value,
+        definitief: document.getElementById('definitief').value,
+        email_leverancier: document.getElementById('email').value
+      };
+
+      const res = await apiPost('/order/finalize', data);
+
+      if (res.status === 'ok') {
+        document.getElementById('final-result').textContent =
+          'Bestelling verstuurd!';
+      } else {
+        document.getElementById('final-result').textContent =
+          'Fout: ' + res.error;
+      }
+    });
+  </script>
+
+</body>
+</html>
