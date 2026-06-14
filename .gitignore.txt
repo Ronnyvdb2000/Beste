@@ -1,0 +1,22 @@
+# Node backend
+backend/node_modules/
+backend/npm-debug.log
+backend/yarn-error.log
+
+# Frontend
+frontend/node_modules/
+frontend/dist/
+frontend/.cache/
+
+# Environment files
+.env
+
+# Logs
+*.log
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Temporary files
+*.tmp
