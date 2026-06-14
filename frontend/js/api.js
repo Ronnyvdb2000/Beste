@@ -1,4 +1,4 @@
-const API_BASE = 'http://localhost:3000/api';
+const API_BASE = 'https://beste-a9oq.onrender.com/api';
 
 async function apiPost(path, data) {
   const res = await fetch(`${API_BASE}${path}`, {
