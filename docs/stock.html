@@ -4,11 +4,102 @@
   <meta charset="UTF-8">
   <title>Stock App - Stock Ingeven</title>
   <link rel="stylesheet" href="css/style.css">
+  <style>
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      margin-top: 1rem;
+      font-size: 0.95rem;
+    }
+    th, td {
+      border: 1px solid #ddd;
+      padding: 8px 10px;
+      text-align: center;
+    }
+    th {
+      background-color: #3b82f6;
+      color: white;
+      font-weight: bold;
+    }
+    tr:nth-child(even) {
+      background-color: #f1f5f9;
+    }
+    td:first-child {
+      text-align: left;
+      font-weight: 500;
+      min-width: 160px;
+    }
+    td input[type="number"] {
+      width: 70px;
+      padding: 4px 6px;
+      border: 1px solid #ccc;
+      border-radius: 4px;
+      text-align: center;
+      font-size: 0.9rem;
+    }
+    .week-bar {
+      display: flex;
+      align-items: center;
+      gap: 1rem;
+      margin-bottom: 1rem;
+      background: white;
+      padding: 1rem;
+      border-radius: 10px;
+      box-shadow: 0 1px 4px rgba(0,0,0,0.1);
+    }
+    .week-bar label {
+      font-weight: bold;
+      margin: 0;
+    }
+    .week-bar input {
+      width: 80px;
+      padding: 6px 10px;
+      border: 1px solid #ccc;
+      border-radius: 6px;
+      font-size: 1rem;
+    }
+    .btn-opslaan {
+      margin-top: 1.2rem;
+      background-color: #3b82f6;
+      color: white;
+      border: none;
+      padding: 12px 30px;
+      border-radius: 8px;
+      font-size: 1rem;
+      cursor: pointer;
+      font-weight: bold;
+    }
+    .btn-opslaan:hover {
+      background-color: #2563eb;
+    }
+    #result-msg {
+      margin-top: 1rem;
+      font-weight: bold;
+      color: green;
+    }
+    .nav-links {
+      margin-top: 2rem;
+      display: flex;
+      gap: 1rem;
+    }
+    .nav-links a {
+      color: #3b82f6;
+      text-decoration: none;
+      font-weight: 500;
+    }
+    .nav-links a:hover {
+      text-decoration: underline;
+    }
+    .tabel-wrapper {
+      background: white;
+      border-radius: 10px;
+      box-shadow: 0 1px 4px rgba(0,0,0,0.1);
+      padding: 1rem;
+      overflow-x: auto;
+    }
+  </style>
 </head>
-
 <body>
-
-  <!-- ⭐ LOGIN BEVEILIGING -->
   <script>
     if (localStorage.getItem("loggedIn") !== "true") {
       window.location.href = "index.html";
@@ -17,138 +108,104 @@
 
   <h1>Stock Ingeven</h1>
 
-  <form id="stock-form">
-    <label>Product</label>
-    <select id="product"></select>
+  <div class="week-bar">
+    <label for="week">Weeknummer:</label>
+    <input type="number" id="week" min="1" max="53" placeholder="bv. 24" required>
+  </div>
 
-    <label>Weeknummer</label>
-    <input type="number" id="week" required>
+  <div class="tabel-wrapper">
+    <table id="stock-tabel">
+      <thead>
+        <tr>
+          <th>Product</th>
+          <th>Stock begin</th>
+          <th>Stock einde</th>
+        </tr>
+      </thead>
+      <tbody id="product-rijen">
+        <tr><td colspan="3" style="text-align:center; color:#888;">Producten laden...</td></tr>
+      </tbody>
+    </table>
+  </div>
 
-    <label>Stock begin</label>
-    <input type="number" id="stock_aanvang" required>
+  <button class="btn-opslaan" onclick="allesOpslaan()">💾 Alles opslaan</button>
+  <div id="result-msg"></div>
 
-    <label>Stock einde</label>
-    <input type="number" id="stock_einde" required>
-
-    <button type="submit">Opslaan</button>
-  </form>
-
-  <div id="result"></div>
-
-  <hr>
-
-  <h2>Bestelvoorstel</h2>
-
-  <form id="proposal-form">
-    <label>Product</label>
-    <select id="product-proposal"></select>
-
-    <label>Weeknummer</label>
-    <input type="number" id="week-proposal" required>
-
-    <button type="submit">Maak voorstel</button>
-  </form>
-
-  <div id="proposal-result"></div>
-
-  <hr>
-
-  <h2>Definitieve bestelling</h2>
-
-  <form id="final-form">
-    <label>Order ID</label>
-    <input type="number" id="order-id" required>
-
-    <label>Definitieve hoeveelheid</label>
-    <input type="number" id="definitief" required>
-
-    <label>Email leverancier</label>
-    <input type="email" id="email" required>
-
-    <button type="submit">Verstuur bestelling</button>
-  </form>
-
-  <div id="final-result"></div>
-
-  <hr>
-
-  <a href="history.html">Bekijk historiek</a>
+  <div class="nav-links">
+    <a href="order.html">📋 Bestelvoorstel</a>
+    <a href="history.html">📜 Historiek</a>
+    <a href="index.html" onclick="localStorage.removeItem('loggedIn')">🚪 Uitloggen</a>
+  </div>
 
   <script src="js/api.js"></script>
-
   <script>
-    // ⭐ PRODUCTEN LADEN
+    let producten = [];
+
     async function loadProducts() {
-      const products = await apiGet('/products');
+      producten = await apiGet('/products');
+      const tbody = document.getElementById('product-rijen');
+      tbody.innerHTML = '';
 
-      const select1 = document.getElementById('product');
-      const select2 = document.getElementById('product-proposal');
-
-      products.forEach(p => {
-        const opt = document.createElement('option');
-        opt.value = p.id;
-        opt.textContent = p.naam;
-
-        const opt2 = opt.cloneNode(true);
-
-        select1.appendChild(opt);
-        select2.appendChild(opt2);
+      producten.forEach(p => {
+        const tr = document.createElement('tr');
+        tr.innerHTML = `
+          <td>${p.naam}</td>
+          <td><input type="number" id="aanvang_${p.id}" min="0" placeholder="0"></td>
+          <td><input type="number" id="einde_${p.id}" min="0" placeholder="0"></td>
+        `;
+        tbody.appendChild(tr);
       });
     }
 
-    loadProducts();
+    async function allesOpslaan() {
+      const week = Number(document.getElementById('week').value);
+      const resultEl = document.getElementById('result-msg');
 
-    // ⭐ STOCK INGAVE
-    document.getElementById('stock-form').addEventListener('submit', async (e) => {
-      e.preventDefault();
-
-      const data = {
-        product_id: document.getElementById('product').value,
-        week: document.getElementById('week').value,
-        stock_aanvang: document.getElementById('stock_aanvang').value,
-        stock_einde: document.getElementById('stock_einde').value
-      };
-
-      const res = await apiPost('/stock', data);
-      document.getElementById('result').textContent =
-        `Verbruik: ${res.verbruik}`;
-    });
-
-    // ⭐ BESTELVOORSTEL
-    document.getElementById('proposal-form').addEventListener('submit', async (e) => {
-      e.preventDefault();
-
-      const data = {
-        product_id: document.getElementById('product-proposal').value,
-        week: document.getElementById('week-proposal').value
-      };
-
-      const res = await apiPost('/order/proposal', data);
-      document.getElementById('proposal-result').textContent =
-        `Voorstel: ${res.voorstel} (Order ID: ${res.id})`;
-    });
-
-    // ⭐ DEFINITIEVE BESTELLING
-    document.getElementById('final-form').addEventListener('submit', async (e) => {
-      e.preventDefault();
-
-      const data = {
-        order_id: document.getElementById('order-id').value,
-        definitief: document.getElementById('definitief').value,
-        email_leverancier: document.getElementById('email').value
-      };
-
-      const res = await apiPost('/order/finalize', data);
-
-      if (res.status === 'ok') {
-        document.getElementById('final-result').textContent =
-          'Bestelling verstuurd!';
-      } else {
-        document.getElementById('final-result').textContent =
-          'Fout: ' + res.error;
+      if (!week) {
+        resultEl.style.color = 'red';
+        resultEl.textContent = '⚠️ Vul eerst een weeknummer in.';
+        return;
       }
-    });
-  </script>
 
+      let opgeslagen = 0;
+      let overgeslagen = 0;
+      resultEl.style.color = '#888';
+      resultEl.textContent = 'Bezig met opslaan...';
+
+      for (const p of producten) {
+        const aanvangEl = document.getElementById(`aanvang_${p.id}`);
+        const eindeEl = document.getElementById(`einde_${p.id}`);
+
+        const aanvang = aanvangEl.value;
+        const einde = eindeEl.value;
+
+        // Sla over als beide leeg zijn
+        if (aanvang === '' && einde === '') {
+          overgeslagen++;
+          continue;
+        }
+
+        try {
+          await apiPost('/stock', {
+            product_id: p.id,
+            week: week,
+            stock_aanvang: Number(aanvang) || 0,
+            stock_einde: Number(einde) || 0
+          });
+          opgeslagen++;
+          aanvangEl.style.backgroundColor = '#d1fae5';
+          eindeEl.style.backgroundColor = '#d1fae5';
+        } catch (err) {
+          aanvangEl.style.backgroundColor = '#fee2e2';
+          eindeEl.style.backgroundColor = '#fee2e2';
+        }
+      }
+
+      resultEl.style.color = 'green';
+      resultEl.textContent = `✅ ${opgeslagen} producten opgeslagen, ${overgeslagen} overgeslagen (leeg).`;
+    }
+
+    loadProducts();
+  </script>
 </body>
 </html>
