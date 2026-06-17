@@ -19,41 +19,6 @@ app.post('/api/login', (req, res) => {
   }
 });
 
-// TIJDELIJK IMPORT ENDPOINT - verwijder na gebruik
-app.get('/api/import-producten', async (req, res) => {
-  const producten = [
-    ['aardbei - kl', 'M', 5], ['aardbei - 1/2l', 'M', 5], ['aardbei - 1l', 'M', 5],
-    ['banaan - kl', 'M', 5], ['banaan - 1/2l', 'M', 5], ['banaan - 1l', 'M', 5],
-    ['chocola - kl', 'M', 5], ['chocola - 1/2l', 'M', 5], ['chocola - 1l', 'M', 5],
-    ['citroen - kl', 'M', 5], ['citroen - 1/2l', 'M', 5], ['citroen - 1l', 'M', 5],
-    ['cuberdon - kl', 'M', 5], ['cuberdon - 1/2l', 'M', 0], ['cuberdon - 1l', 'M', 0],
-    ['framboos - kl', 'M', 5], ['framboos - 1/2l', 'M', 5], ['framboos - 1l', 'M', 5],
-    ['mokka - kl', 'M', 5], ['mokka - 1/2l', 'M', 5], ['mokka - 1l', 'M', 0],
-    ['pistache - kl', 'M', 5], ['pistache - 1/2l', 'M', 5], ['pistache - 1l', 'M', 0],
-    ['praline - kl', 'M', 5], ['praline - 1/2l', 'M', 5], ['praline - 1l', 'M', 0],
-    ['rum&roz - kl', 'M', 5], ['rum&roz - 1/2l', 'M', 5], ['rum&roz - 1l', 'M', 0],
-    ['speculoos - kl', 'M', 5], ['speculoos - 1/2l', 'M', 5], ['speculoos - 1l', 'M', 5],
-    ['stratiacelli - kl', 'M', 5], ['stratiacelli - 1/2l', 'M', 5], ['stratiacelli - 1l', 'M', 5],
-    ['vanille - kl', 'M', 5], ['vanille - 1/2l', 'M', 5], ['vanille - 1l', 'M', 5],
-    ['yoghurt - kl', 'M', 5], ['yoghurt - 1/2l', 'M', 5], ['yoghurt - 1l', 'M', 5],
-    ['wit - zonder', 'M', 5], ['wit - met', 'M', 5],
-    ['bruin - zonder', 'M', 5], ['bruin - met', 'M', 5],
-    ['fondant - zonder', 'M', 5], ['fondant - met', 'M', 5]
-  ];
-  try {
-    await db.execute('DELETE FROM producten');
-    for (const [naam, leverancier, minimum_stock] of producten) {
-      await db.execute({
-        sql: 'INSERT INTO producten (naam, leverancier, minimum_stock) VALUES (?, ?, ?)',
-        args: [naam, leverancier, minimum_stock]
-      });
-    }
-    res.json({ status: 'ok', aantal: producten.length });
-  } catch (err) {
-    res.status(500).json({ error: err.message });
-  }
-});
-
 // PRODUCTEN
 app.get('/api/products', async (req, res) => {
   try {
