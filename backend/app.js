@@ -122,4 +122,53 @@ app.post('/api/order/finalize-all', async (req, res) => {
     for (const o of orders) {
       await db.execute({
         sql: `UPDATE bestellingen SET definitief = ? WHERE id = ?`,
-        args:
+        args: [o.definitief, o.order_id]
+      });
+
+      const orderRes = await db.execute({
+        sql: `SELECT p.naam FROM bestellingen b JOIN producten p ON p.id = b.product_id WHERE b.id = ?`,
+        args: [o.order_id]
+      });
+      const row = orderRes.rows[0];
+      if (row) {
+        regels.push(`${row.naam}: ${o.definitief}`);
+      }
+
+      await db.execute({
+        sql: `UPDATE bestellingen SET verstuurd = 1 WHERE id = ?`,
+        args: [o.order_id]
+      });
+    }
+
+    const tekst = `Bestelling week ${week}\n\n${regels.join('\n')}`;
+    await sendOrderMail(email_leverancier, `Bestelling week ${week}`, tekst);
+
+    res.json({ status: 'ok', aantal: regels.length });
+  } catch (err) {
+    res.status(500).json({ error: 'Mail versturen mislukt', details: err.message });
+  }
+});
+
+// HISTORIEK
+app.get('/api/history', async (req, res) => {
+  try {
+    const result = await db.execute(
+      `SELECT b.id, p.naam, b.week, b.voorstel, b.definitief, b.verstuurd
+       FROM bestellingen b JOIN producten p ON p.id = b.product_id
+       ORDER BY b.week DESC`
+    );
+    res.json(result.rows);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// START
+initDb().then(() => {
+  app.listen(3000, () => {
+    console.log('Backend draait op http://localhost:3000');
+  });
+}).catch(err => {
+  console.error('Database init mislukt:', err);
+  process.exit(1);
+});
