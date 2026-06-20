@@ -1,4 +1,101 @@
-<script>
+<!DOCTYPE html>
+<html lang="nl">
+<head>
+  <meta charset="UTF-8">
+  <title>Stock App - Bestelvoorstel</title>
+  <link rel="stylesheet" href="css/style.css">
+  <style>
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      margin-top: 1rem;
+      font-size: 0.95rem;
+    }
+    th, td {
+      border: 1px solid #ddd;
+      padding: 8px 10px;
+      text-align: center;
+    }
+    th {
+      background-color: #3b82f6;
+      color: white;
+      font-weight: bold;
+    }
+    tr:nth-child(even) { background-color: #f1f5f9; }
+    td:first-child { text-align: left; font-weight: 500; min-width: 160px; }
+    td input[type="number"] {
+      width: 70px;
+      padding: 4px 6px;
+      border: 1px solid #ccc;
+      border-radius: 4px;
+      text-align: center;
+      font-size: 0.9rem;
+    }
+    .week-bar {
+      display: flex;
+      align-items: center;
+      gap: 1rem;
+      margin-bottom: 1rem;
+      background: white;
+      padding: 1rem;
+      border-radius: 10px;
+      box-shadow: 0 1px 4px rgba(0,0,0,0.1);
+    }
+    .week-bar label { font-weight: bold; margin: 0; }
+    .week-bar input {
+      width: 80px;
+      padding: 6px 10px;
+      border: 1px solid #ccc;
+      border-radius: 6px;
+      font-size: 1rem;
+    }
+    .tabel-wrapper {
+      background: white;
+      border-radius: 10px;
+      box-shadow: 0 1px 4px rgba(0,0,0,0.1);
+      padding: 1rem;
+      overflow-x: auto;
+    }
+    .btn {
+      padding: 10px 24px;
+      border: none;
+      border-radius: 8px;
+      font-size: 1rem;
+      font-weight: bold;
+      cursor: pointer;
+      color: white;
+    }
+    .btn-blauw { background-color: #3b82f6; margin-top: 1rem; }
+    .btn-blauw:hover { background-color: #2563eb; }
+    .btn-groen { background-color: #10b981; }
+    .btn-groen:hover { background-color: #059669; }
+    #result-msg { margin-top: 1rem; font-weight: bold; }
+    .email-bar {
+      display: flex;
+      align-items: center;
+      gap: 1rem;
+      margin-top: 1.2rem;
+      background: white;
+      padding: 1rem;
+      border-radius: 10px;
+      box-shadow: 0 1px 4px rgba(0,0,0,0.1);
+    }
+    .email-bar label { font-weight: bold; margin: 0; }
+    .email-bar input {
+      flex: 1;
+      padding: 6px 10px;
+      border: 1px solid #ccc;
+      border-radius: 6px;
+      font-size: 1rem;
+    }
+    .voorstel-cel { font-weight: bold; color: #2563eb; }
+    .nav-links { margin-top: 2rem; display: flex; gap: 1rem; }
+    .nav-links a { color: #3b82f6; text-decoration: none; font-weight: 500; }
+    .nav-links a:hover { text-decoration: underline; }
+  </style>
+</head>
+<body>
+  <script>
     if (localStorage.getItem("loggedIn") !== "true") {
       window.location.href = "index.html";
     }
