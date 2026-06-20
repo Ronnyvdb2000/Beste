@@ -1,101 +1,4 @@
-<!DOCTYPE html>
-<html lang="nl">
-<head>
-  <meta charset="UTF-8">
-  <title>Stock App - Bestelvoorstel</title>
-  <link rel="stylesheet" href="css/style.css">
-  <style>
-    table {
-      width: 100%;
-      border-collapse: collapse;
-      margin-top: 1rem;
-      font-size: 0.95rem;
-    }
-    th, td {
-      border: 1px solid #ddd;
-      padding: 8px 10px;
-      text-align: center;
-    }
-    th {
-      background-color: #3b82f6;
-      color: white;
-      font-weight: bold;
-    }
-    tr:nth-child(even) { background-color: #f1f5f9; }
-    td:first-child { text-align: left; font-weight: 500; min-width: 160px; }
-    td input[type="number"] {
-      width: 70px;
-      padding: 4px 6px;
-      border: 1px solid #ccc;
-      border-radius: 4px;
-      text-align: center;
-      font-size: 0.9rem;
-    }
-    .week-bar {
-      display: flex;
-      align-items: center;
-      gap: 1rem;
-      margin-bottom: 1rem;
-      background: white;
-      padding: 1rem;
-      border-radius: 10px;
-      box-shadow: 0 1px 4px rgba(0,0,0,0.1);
-    }
-    .week-bar label { font-weight: bold; margin: 0; }
-    .week-bar input {
-      width: 80px;
-      padding: 6px 10px;
-      border: 1px solid #ccc;
-      border-radius: 6px;
-      font-size: 1rem;
-    }
-    .tabel-wrapper {
-      background: white;
-      border-radius: 10px;
-      box-shadow: 0 1px 4px rgba(0,0,0,0.1);
-      padding: 1rem;
-      overflow-x: auto;
-    }
-    .btn {
-      padding: 10px 24px;
-      border: none;
-      border-radius: 8px;
-      font-size: 1rem;
-      font-weight: bold;
-      cursor: pointer;
-      color: white;
-    }
-    .btn-blauw { background-color: #3b82f6; margin-top: 1rem; }
-    .btn-blauw:hover { background-color: #2563eb; }
-    .btn-groen { background-color: #10b981; }
-    .btn-groen:hover { background-color: #059669; }
-    #result-msg { margin-top: 1rem; font-weight: bold; }
-    .email-bar {
-      display: flex;
-      align-items: center;
-      gap: 1rem;
-      margin-top: 1.2rem;
-      background: white;
-      padding: 1rem;
-      border-radius: 10px;
-      box-shadow: 0 1px 4px rgba(0,0,0,0.1);
-    }
-    .email-bar label { font-weight: bold; margin: 0; }
-    .email-bar input {
-      flex: 1;
-      padding: 6px 10px;
-      border: 1px solid #ccc;
-      border-radius: 6px;
-      font-size: 1rem;
-    }
-    .voorstel-cel { font-weight: bold; color: #2563eb; }
-    .nav-links { margin-top: 2rem; display: flex; gap: 1rem; }
-    .nav-links a { color: #3b82f6; text-decoration: none; font-weight: 500; }
-    .nav-links a:hover { text-decoration: underline; }
-  </style>
-</head>
-<body>
-  <script>
+<script>
     if (localStorage.getItem("loggedIn") !== "true") {
       window.location.href = "index.html";
     }
@@ -116,11 +19,10 @@
           <th>Product</th>
           <th>Voorstel</th>
           <th>Definitieve hoeveelheid</th>
-          <th>Actie</th>
         </tr>
       </thead>
       <tbody id="order-rijen">
-        <tr><td colspan="4" style="text-align:center; color:#888;">Klik op "Genereer voorstellen" om te starten.</td></tr>
+        <tr><td colspan="3" style="text-align:center; color:#888;">Klik op "Genereer voorstellen" om te starten.</td></tr>
       </tbody>
     </table>
   </div>
@@ -129,6 +31,8 @@
     <label for="email">Email leverancier:</label>
     <input type="email" id="email" placeholder="leverancier@voorbeeld.be">
   </div>
+
+  <button class="btn btn-groen" style="margin-top:1rem;" onclick="verstuurAlles()">📧 Verstuur volledige bestelling</button>
 
   <div id="result-msg"></div>
 
@@ -153,7 +57,7 @@
         return;
       }
 
-      tbody.innerHTML = '<tr><td colspan="4" style="text-align:center; color:#888;">Bezig met laden...</td></tr>';
+      tbody.innerHTML = '<tr><td colspan="3" style="text-align:center; color:#888;">Bezig met laden...</td></tr>';
       resultEl.textContent = '';
       voorstellen = [];
 
@@ -172,7 +76,6 @@
               <td>${p.naam}</td>
               <td class="voorstel-cel">${res.voorstel}</td>
               <td><input type="number" id="definitief_${res.id}" value="${res.voorstel}" min="0"></td>
-              <td><button class="btn btn-groen" onclick="verstuurEen(${res.id})">📧 Verstuur</button></td>
             `;
             tbody.appendChild(tr);
           } catch (e) {
@@ -181,7 +84,7 @@
         }
 
         if (tbody.innerHTML === '') {
-          tbody.innerHTML = '<tr><td colspan="4" style="text-align:center; color:#888;">Geen voorstellen — stock eerst ingeven voor week ' + week + '.</td></tr>';
+          tbody.innerHTML = '<tr><td colspan="3" style="text-align:center; color:#888;">Geen voorstellen — stock eerst ingeven voor week ' + week + '.</td></tr>';
         }
 
       } catch (err) {
@@ -190,9 +93,9 @@
       }
     }
 
-    async function verstuurEen(order_id) {
+    async function verstuurAlles() {
       const email = document.getElementById('email').value;
-      const definitief = Number(document.getElementById(`definitief_${order_id}`).value);
+      const week = Number(document.getElementById('week').value);
       const resultEl = document.getElementById('result-msg');
 
       if (!email) {
@@ -201,12 +104,33 @@
         return;
       }
 
+      if (voorstellen.length === 0) {
+        resultEl.style.color = 'red';
+        resultEl.textContent = '⚠️ Geen bestelling om te versturen.';
+        return;
+      }
+
+      const orders = voorstellen
+        .map(v => ({
+          order_id: v.order_id,
+          definitief: Number(document.getElementById(`definitief_${v.order_id}`).value)
+        }))
+        .filter(o => o.definitief > 0);
+
+      if (orders.length === 0) {
+        resultEl.style.color = 'red';
+        resultEl.textContent = '⚠️ Alle hoeveelheden staan op 0.';
+        return;
+      }
+
       try {
-        await apiPost('/order/finalize', { order_id, definitief, email_leverancier: email });
-        const rij = document.getElementById(`rij_${order_id}`);
-        if (rij) rij.style.backgroundColor = '#d1fae5';
+        await apiPost('/order/finalize-all', { orders, email_leverancier: email, week });
+        orders.forEach(o => {
+          const rij = document.getElementById(`rij_${o.order_id}`);
+          if (rij) rij.style.backgroundColor = '#d1fae5';
+        });
         resultEl.style.color = 'green';
-        resultEl.textContent = `✅ Bestelling verstuurd naar ${email}.`;
+        resultEl.textContent = `✅ Bestelling verstuurd naar ${email} (${orders.length} producten).`;
       } catch (err) {
         resultEl.style.color = 'red';
         resultEl.textContent = '❌ Fout bij versturen.';
