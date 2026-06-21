@@ -69,6 +69,8 @@
     .btn-blauw:hover { background-color: #2563eb; }
     .btn-groen { background-color: #10b981; }
     .btn-groen:hover { background-color: #059669; }
+    .btn-oranje { background-color: #f59e0b; }
+    .btn-oranje:hover { background-color: #d97706; }
     #result-msg { margin-top: 1rem; font-weight: bold; }
     .email-bar {
       display: flex;
@@ -89,6 +91,16 @@
       font-size: 1rem;
     }
     .voorstel-cel { font-weight: bold; color: #2563eb; }
+    .status-tag {
+      display: inline-block;
+      margin-bottom: 1rem;
+      padding: 6px 14px;
+      border-radius: 20px;
+      font-weight: bold;
+      font-size: 0.85rem;
+    }
+    .status-nieuw { background-color: #dbeafe; color: #1e40af; }
+    .status-verstuurd { background-color: #fef3c7; color: #92400e; }
     .nav-links { margin-top: 2rem; display: flex; gap: 1rem; }
     .nav-links a { color: #3b82f6; text-decoration: none; font-weight: 500; }
     .nav-links a:hover { text-decoration: underline; }
@@ -108,6 +120,8 @@
     <input type="number" id="week" min="1" max="53" placeholder="bv. 24" required>
     <button class="btn btn-blauw" onclick="maakVoorstellen()">📋 Genereer voorstellen</button>
   </div>
+
+  <div id="status-tag-wrapper"></div>
 
   <div class="tabel-wrapper">
     <table id="order-tabel">
@@ -129,7 +143,7 @@
     <input type="email" id="email" placeholder="leverancier@voorbeeld.be">
   </div>
 
-  <button class="btn btn-groen" style="margin-top:1rem;" onclick="verstuurAlles()">📧 Verstuur volledige bestelling</button>
+  <button id="verstuur-btn" class="btn btn-groen" style="margin-top:1rem;" onclick="verstuurAlles()">📧 Verstuur volledige bestelling</button>
 
   <div id="result-msg"></div>
 
@@ -142,11 +156,14 @@
   <script src="js/api.js"></script>
   <script>
     let voorstellen = []; // { product_id, naam, voorstel, order_id }
+    let weekIsVerstuurd = false;
 
     async function maakVoorstellen() {
       const week = Number(document.getElementById('week').value);
       const resultEl = document.getElementById('result-msg');
       const tbody = document.getElementById('order-rijen');
+      const statusWrapper = document.getElementById('status-tag-wrapper');
+      const verstuurBtn = document.getElementById('verstuur-btn');
 
       if (!week) {
         resultEl.style.color = 'red';
@@ -156,13 +173,57 @@
 
       tbody.innerHTML = '<tr><td colspan="3" style="text-align:center; color:#888;">Bezig met laden...</td></tr>';
       resultEl.textContent = '';
+      statusWrapper.innerHTML = '';
       voorstellen = [];
+      weekIsVerstuurd = false;
 
       try {
         const producten = await apiGet('/products');
+        const bestaandeOrders = await apiGet(`/order/week/${week}`);
+
+        const bestaandPerProduct = {};
+        bestaandeOrders.forEach(o => { bestaandPerProduct[o.product_id] = o; });
+
+        weekIsVerstuurd = bestaandeOrders.some(o => o.verstuurd === 1);
+
+        if (bestaandeOrders.length > 0) {
+          if (weekIsVerstuurd) {
+            statusWrapper.innerHTML = '<span class="status-tag status-verstuurd">⚠️ Deze week is al verstuurd — wijzigingen worden opnieuw verstuurd</span>';
+            verstuurBtn.textContent = '🔁 Opnieuw versturen (met wijzigingen)';
+            verstuurBtn.className = 'btn btn-oranje';
+          } else {
+            statusWrapper.innerHTML = '<span class="status-tag status-nieuw">ℹ️ Eerder opgeslagen voorstel teruggevonden voor deze week</span>';
+            verstuurBtn.textContent = '📧 Verstuur volledige bestelling';
+            verstuurBtn.className = 'btn btn-groen';
+          }
+        } else {
+          verstuurBtn.textContent = '📧 Verstuur volledige bestelling';
+          verstuurBtn.className = 'btn btn-groen';
+        }
 
         tbody.innerHTML = '';
         for (const p of producten) {
+          const bestaand = bestaandPerProduct[p.id];
+
+          if (bestaand) {
+            // Bestaande bestelregel hergebruiken — toon laatst opgeslagen waarde, wijzigbaar
+            const startWaarde = bestaand.definitief !== null && bestaand.definitief !== undefined
+              ? bestaand.definitief
+              : bestaand.voorstel;
+
+            voorstellen.push({ product_id: p.id, naam: p.naam, voorstel: bestaand.voorstel, order_id: bestaand.id });
+
+            const tr = document.createElement('tr');
+            tr.id = `rij_${bestaand.id}`;
+            tr.innerHTML = `
+              <td>${p.naam}</td>
+              <td class="voorstel-cel">${bestaand.voorstel}</td>
+              <td><input type="number" id="definitief_${bestaand.id}" value="${startWaarde}" min="0"></td>
+            `;
+            tbody.appendChild(tr);
+            continue;
+          }
+
           try {
             const res = await apiPost('/order/proposal', { product_id: p.id, week });
             voorstellen.push({ product_id: p.id, naam: p.naam, voorstel: res.voorstel, order_id: res.id });
@@ -225,7 +286,13 @@
       }
 
       try {
-        const res = await apiPost('/order/finalize-all', { orders, email_leverancier: email, week });
+        let res;
+        if (weekIsVerstuurd) {
+          res = await apiPost('/order/resend', { week, email_leverancier: email, orders });
+        } else {
+          res = await apiPost('/order/finalize-all', { orders, email_leverancier: email, week });
+        }
+
         orders.forEach(o => {
           const rij = document.getElementById(`rij_${o.order_id}`);
           if (rij) rij.style.backgroundColor = '#d1fae5';
@@ -234,7 +301,7 @@
         resultEl.textContent = `✅ Bestelling verstuurd naar ${email} (${res.aantal} producten).`;
       } catch (err) {
         resultEl.style.color = 'red';
-        resultEl.textContent = '❌ ' + (err.message || 'Fout bij versturen — mogelijk is deze week al verstuurd.');
+        resultEl.textContent = '❌ ' + (err.message || 'Fout bij versturen.');
       }
     }
   </script>
