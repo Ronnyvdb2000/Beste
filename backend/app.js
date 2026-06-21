@@ -96,16 +96,16 @@ app.post('/api/order/proposal', async (req, res) => {
       args: [product_id, week]
     });
     const stockRow = stockRes.rows[0];
-    if (!stockRow) return res.status(404).json({ error: 'Stock niet gevonden voor deze week' });
 
-    const voorstel = Math.max(product.minimum_stock - stockRow.stock_einde, 0);
+    const heeftStock = !!stockRow && stockRow.stock_einde !== null;
+    const voorstel = heeftStock ? Math.max(product.minimum_stock - stockRow.stock_einde, 0) : 0;
 
     const insertRes = await db.execute({
       sql: `INSERT INTO bestellingen (product_id, week, voorstel) VALUES (?, ?, ?)`,
       args: [product_id, week, voorstel]
     });
 
-    res.json({ id: Number(insertRes.lastInsertRowid), voorstel });
+    res.json({ id: Number(insertRes.lastInsertRowid), voorstel, heeftStock });
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
