@@ -111,32 +111,35 @@ app.post('/api/order/proposal', async (req, res) => {
   }
 });
 
-// Helper: zet automatisch de beginstock van volgende week = eindstock huidige week + bestelde hoeveelheid
+// Helper: zet automatisch de beginstock van volgende week = eindstock huidige week + bestelde hoeveelheid (0 indien niet besteld)
 async function updateVolgendeWeekBeginstock(week) {
-  const ordersRes = await db.execute({
-    sql: `SELECT product_id, definitief FROM bestellingen WHERE week = ? AND verstuurd = 1`,
+  const stockRes = await db.execute({
+    sql: `SELECT product_id, stock_einde FROM week_stock WHERE week = ?`,
     args: [week]
   });
 
+  const bestellingenRes = await db.execute({
+    sql: `SELECT product_id, definitief FROM bestellingen WHERE week = ? AND verstuurd = 1`,
+    args: [week]
+  });
+  const besteldPerProduct = {};
+  bestellingenRes.rows.forEach(b => { besteldPerProduct[b.product_id] = b.definitief || 0; });
+
   const overgeslagen = [];
 
-  for (const order of ordersRes.rows) {
-    const eindstockRes = await db.execute({
-      sql: `SELECT stock_einde FROM week_stock WHERE product_id = ? AND week = ? ORDER BY id DESC LIMIT 1`,
-      args: [order.product_id, week]
-    });
-    const eindstockRow = eindstockRes.rows[0];
-    if (!eindstockRow || eindstockRow.stock_einde === null) {
-      overgeslagen.push(order.product_id);
+  for (const stockRow of stockRes.rows) {
+    if (stockRow.stock_einde === null) {
+      overgeslagen.push(stockRow.product_id);
       continue;
     }
 
-    const nieuweBeginstock = eindstockRow.stock_einde + (order.definitief || 0);
+    const besteld = besteldPerProduct[stockRow.product_id] || 0;
+    const nieuweBeginstock = stockRow.stock_einde + besteld;
     const volgendeWeek = week + 1;
 
     const bestaandeRes = await db.execute({
       sql: `SELECT id FROM week_stock WHERE product_id = ? AND week = ?`,
-      args: [order.product_id, volgendeWeek]
+      args: [stockRow.product_id, volgendeWeek]
     });
 
     if (bestaandeRes.rows.length > 0) {
@@ -147,7 +150,7 @@ async function updateVolgendeWeekBeginstock(week) {
     } else {
       await db.execute({
         sql: `INSERT INTO week_stock (product_id, week, stock_aanvang, stock_einde) VALUES (?, ?, ?, 0)`,
-        args: [order.product_id, volgendeWeek, nieuweBeginstock]
+        args: [stockRow.product_id, volgendeWeek, nieuweBeginstock]
       });
     }
   }
