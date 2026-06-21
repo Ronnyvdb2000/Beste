@@ -221,16 +221,16 @@
       }
 
       try {
-        await apiPost('/order/finalize-all', { orders, email_leverancier: email, week });
+        const res = await apiPost('/order/finalize-all', { orders, email_leverancier: email, week });
         orders.forEach(o => {
           const rij = document.getElementById(`rij_${o.order_id}`);
           if (rij) rij.style.backgroundColor = '#d1fae5';
         });
         resultEl.style.color = 'green';
-        resultEl.textContent = `✅ Bestelling verstuurd naar ${email} (${orders.length} producten).`;
+        resultEl.textContent = `✅ Bestelling verstuurd naar ${email} (${res.aantal} producten).`;
       } catch (err) {
         resultEl.style.color = 'red';
-        resultEl.textContent = '❌ Fout bij versturen.';
+        resultEl.textContent = '❌ ' + (err.message || 'Fout bij versturen — mogelijk is deze week al verstuurd.');
       }
     }
   </script>
