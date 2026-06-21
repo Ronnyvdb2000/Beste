@@ -187,3 +187,30 @@ app.post('/api/order/resend', async (req, res) => {
     res.json({ status: 'ok', aantal: regels.length });
   } catch (err) {
     console.error('FOUT bij resend:', err);
+    res.status(500).json({ error: 'Mail versturen mislukt', details: err.message });
+  }
+});
+
+// HISTORIEK
+app.get('/api/history', async (req, res) => {
+  try {
+    const result = await db.execute(
+      `SELECT b.id, p.naam, b.week, b.voorstel, b.definitief, b.verstuurd
+       FROM bestellingen b JOIN producten p ON p.id = b.product_id
+       ORDER BY b.week DESC`
+    );
+    res.json(result.rows);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// START
+initDb().then(() => {
+  app.listen(3000, () => {
+    console.log('Backend draait op http://localhost:3000');
+  });
+}).catch(err => {
+  console.error('Database init mislukt:', err);
+  process.exit(1);
+});
