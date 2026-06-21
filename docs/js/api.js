@@ -6,10 +6,18 @@ async function apiPost(path, data) {
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(data)
   });
-  return res.json();
+  const json = await res.json();
+  if (!res.ok) {
+    throw new Error(json.error || 'Er ging iets mis.');
+  }
+  return json;
 }
 
 async function apiGet(path) {
   const res = await fetch(`${API_BASE}${path}`);
-  return res.json();
+  const json = await res.json();
+  if (!res.ok) {
+    throw new Error(json.error || 'Er ging iets mis.');
+  }
+  return json;
 }
