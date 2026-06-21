@@ -140,4 +140,50 @@ app.post('/api/order/finalize-all', async (req, res) => {
       });
 
       const orderRes = await db.execute({
-        sql:
+        sql: `SELECT p.naam FROM bestellingen b JOIN producten p ON p.id = b.product_id WHERE b.id = ?`,
+        args: [o.order_id]
+      });
+      const row = orderRes.rows[0];
+      if (row) {
+        regels.push(`${row.naam}: ${o.definitief}`);
+      }
+    }
+
+    const tekst = `Bestelling week ${week}\n\n${regels.join('\n')}`;
+    await sendOrderMail(email_leverancier, `Bestelling week ${week}`, tekst);
+
+    for (const o of orders) {
+      await db.execute({
+        sql: `UPDATE bestellingen SET verstuurd = 1 WHERE id = ?`,
+        args: [o.order_id]
+      });
+    }
+
+    res.json({ status: 'ok', aantal: regels.length });
+  } catch (err) {
+    console.error('FOUT bij finalize-all:', err);
+    res.status(500).json({ error: 'Mail versturen mislukt', details: err.message });
+  }
+});
+
+// OPNIEUW VERSTUREN (zelfde week, mail bevat melding "reeds verstuurd")
+app.post('/api/order/resend', async (req, res) => {
+  const { week, email_leverancier } = req.body;
+  try {
+    const result = await db.execute({
+      sql: `SELECT p.naam, b.definitief FROM bestellingen b JOIN producten p ON p.id = b.product_id WHERE b.week = ? AND b.verstuurd = 1`,
+      args: [week]
+    });
+
+    if (result.rows.length === 0) {
+      return res.status(404).json({ error: `Geen verstuurde bestelling gevonden voor week ${week}` });
+    }
+
+    const regels = result.rows.map(r => `${r.naam}: ${r.definitief}`);
+    const tekst = `⚠️ REEDS VERSTUURD — dit is een herhaling van bestelling week ${week}\n\n${regels.join('\n')}`;
+
+    await sendOrderMail(email_leverancier, `[REEDS VERSTUURD] Bestelling week ${week}`, tekst);
+
+    res.json({ status: 'ok', aantal: regels.length });
+  } catch (err) {
+    console.error('FOUT bij resend:', err);
