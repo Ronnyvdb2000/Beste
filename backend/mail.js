@@ -1,18 +1,18 @@
 const nodemailer = require('nodemailer');
 
 const transporter = nodemailer.createTransport({
-  host: 'smtp.example.com',
+  host: 'smtp.gmail.com',
   port: 587,
   secure: false,
   auth: {
-    user: 'jouw_email@example.com',
-    pass: 'jouw_wachtwoord'
+    user: process.env.EMAIL_USER,
+    pass: process.env.EMAIL_PASS
   }
 });
 
 async function sendOrderMail(to, subject, text) {
   await transporter.sendMail({
-    from: '"Bestellingen" <jouw_email@example.com>',
+    from: `"Bestellingen" <${process.env.EMAIL_USER}>`,
     to,
     subject,
     text
