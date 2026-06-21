@@ -7,6 +7,11 @@ const app = express();
 app.use(cors());
 app.use(express.json());
 
+app.use((req, res, next) => {
+  console.log(`${req.method} ${req.path}`);
+  next();
+});
+
 // LOGIN
 app.post('/api/login', (req, res) => {
   const { username, password } = req.body;
@@ -75,8 +80,7 @@ app.post('/api/order/proposal', async (req, res) => {
 
     res.json({ id: Number(insertRes.lastInsertRowid), voorstel });
   } catch (err) {
-    console.error('FOUT bij finalize-all:', err);
-    res.status(500).json({ error: 'Mail versturen mislukt', details: err.message });
+    res.status(500).json({ error: err.message });
   }
 });
 
@@ -105,17 +109,26 @@ app.post('/api/order/finalize', async (req, res) => {
 
     res.json({ status: 'ok' });
   } catch (err) {
+    console.error('FOUT bij finalize:', err);
     res.status(500).json({ error: 'Mail versturen mislukt', details: err.message });
   }
 });
 
-// DEFINITIEVE BESTELLING - ALLES IN ÉÉN MAIL
+// DEFINITIEVE BESTELLING - ALLES IN ÉÉN MAIL, MET DUBBELE-WEEK CHECK
 app.post('/api/order/finalize-all', async (req, res) => {
   const { orders, email_leverancier, week } = req.body;
   // orders = [{ order_id, definitief }, ...]
   try {
     if (!Array.isArray(orders) || orders.length === 0) {
       return res.status(400).json({ error: 'Geen bestellingen meegegeven' });
+    }
+
+    const checkRes = await db.execute({
+      sql: `SELECT COUNT(*) as aantal FROM bestellingen WHERE week = ? AND verstuurd = 1`,
+      args: [week]
+    });
+    if (checkRes.rows[0].aantal > 0) {
+      return res.status(409).json({ error: `Week ${week} is al verstuurd. Dubbele bestelling niet toegelaten.` });
     }
 
     const regels = [];
@@ -127,49 +140,4 @@ app.post('/api/order/finalize-all', async (req, res) => {
       });
 
       const orderRes = await db.execute({
-        sql: `SELECT p.naam FROM bestellingen b JOIN producten p ON p.id = b.product_id WHERE b.id = ?`,
-        args: [o.order_id]
-      });
-      const row = orderRes.rows[0];
-      if (row) {
-        regels.push(`${row.naam}: ${o.definitief}`);
-      }
-
-      await db.execute({
-        sql: `UPDATE bestellingen SET verstuurd = 1 WHERE id = ?`,
-        args: [o.order_id]
-      });
-    }
-
-    const tekst = `Bestelling week ${week}\n\n${regels.join('\n')}`;
-    await sendOrderMail(email_leverancier, `Bestelling week ${week}`, tekst);
-
-    res.json({ status: 'ok', aantal: regels.length });
-  } catch (err) {
-    res.status(500).json({ error: 'Mail versturen mislukt', details: err.message });
-  }
-});
-
-// HISTORIEK
-app.get('/api/history', async (req, res) => {
-  try {
-    const result = await db.execute(
-      `SELECT b.id, p.naam, b.week, b.voorstel, b.definitief, b.verstuurd
-       FROM bestellingen b JOIN producten p ON p.id = b.product_id
-       ORDER BY b.week DESC`
-    );
-    res.json(result.rows);
-  } catch (err) {
-    res.status(500).json({ error: err.message });
-  }
-});
-
-// START
-initDb().then(() => {
-  app.listen(3000, () => {
-    console.log('Backend draait op http://localhost:3000');
-  });
-}).catch(err => {
-  console.error('Database init mislukt:', err);
-  process.exit(1);
-});
+        sql:
