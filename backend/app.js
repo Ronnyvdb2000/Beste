@@ -80,6 +80,25 @@ app.post('/api/stock', async (req, res) => {
   }
 });
 
+// BESTAANDE BESTELLING VAN EEN WEEK OPHALEN (laatste ingave per product)
+app.get('/api/order/week/:week', async (req, res) => {
+  const week = Number(req.params.week);
+  try {
+    const result = await db.execute({
+      sql: `SELECT b.id, b.product_id, b.voorstel, b.definitief, b.verstuurd
+            FROM bestellingen b
+            WHERE b.week = ?
+            AND b.id IN (
+              SELECT MAX(id) FROM bestellingen WHERE week = ? GROUP BY product_id
+            )`,
+      args: [week, week]
+    });
+    res.json(result.rows);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
 // BESTELVOORSTEL
 app.post('/api/order/proposal', async (req, res) => {
   const { product_id, week } = req.body;
@@ -242,10 +261,20 @@ app.post('/api/order/finalize-all', async (req, res) => {
   }
 });
 
-// OPNIEUW VERSTUREN (zelfde week, mail bevat melding "reeds verstuurd")
+// OPNIEUW VERSTUREN (zelfde week, eventueel met aangepaste hoeveelheden, mail bevat melding "reeds verstuurd")
 app.post('/api/order/resend', async (req, res) => {
-  const { week, email_leverancier } = req.body;
+  const { week, email_leverancier, orders } = req.body;
+  // orders (optioneel) = [{ order_id, definitief }, ...] — aangepaste hoeveelheden
   try {
+    if (Array.isArray(orders) && orders.length > 0) {
+      for (const o of orders) {
+        await db.execute({
+          sql: `UPDATE bestellingen SET definitief = ? WHERE id = ?`,
+          args: [o.definitief, o.order_id]
+        });
+      }
+    }
+
     const result = await db.execute({
       sql: `SELECT p.naam, b.definitief FROM bestellingen b JOIN producten p ON p.id = b.product_id WHERE b.week = ? AND b.verstuurd = 1`,
       args: [week]
