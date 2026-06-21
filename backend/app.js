@@ -75,7 +75,8 @@ app.post('/api/order/proposal', async (req, res) => {
 
     res.json({ id: Number(insertRes.lastInsertRowid), voorstel });
   } catch (err) {
-    res.status(500).json({ error: err.message });
+    console.error('FOUT bij finalize-all:', err);
+    res.status(500).json({ error: 'Mail versturen mislukt', details: err.message });
   }
 });
 
