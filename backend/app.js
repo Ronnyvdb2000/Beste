@@ -84,6 +84,43 @@ app.post('/api/order/proposal', async (req, res) => {
   }
 });
 
+// Helper: zet automatisch de beginstock van volgende week = eindstock huidige week + bestelde hoeveelheid
+async function updateVolgendeWeekBeginstock(week) {
+  const ordersRes = await db.execute({
+    sql: `SELECT product_id, definitief FROM bestellingen WHERE week = ? AND verstuurd = 1`,
+    args: [week]
+  });
+
+  for (const order of ordersRes.rows) {
+    const eindstockRes = await db.execute({
+      sql: `SELECT stock_einde FROM week_stock WHERE product_id = ? AND week = ? ORDER BY id DESC LIMIT 1`,
+      args: [order.product_id, week]
+    });
+    const eindstockRow = eindstockRes.rows[0];
+    if (!eindstockRow) continue;
+
+    const nieuweBeginstock = eindstockRow.stock_einde + (order.definitief || 0);
+    const volgendeWeek = week + 1;
+
+    const bestaandeRes = await db.execute({
+      sql: `SELECT id FROM week_stock WHERE product_id = ? AND week = ?`,
+      args: [order.product_id, volgendeWeek]
+    });
+
+    if (bestaandeRes.rows.length > 0) {
+      await db.execute({
+        sql: `UPDATE week_stock SET stock_aanvang = ? WHERE id = ?`,
+        args: [nieuweBeginstock, bestaandeRes.rows[0].id]
+      });
+    } else {
+      await db.execute({
+        sql: `INSERT INTO week_stock (product_id, week, stock_aanvang, stock_einde) VALUES (?, ?, ?, NULL)`,
+        args: [order.product_id, volgendeWeek, nieuweBeginstock]
+      });
+    }
+  }
+}
+
 // DEFINITIEVE BESTELLING (enkelvoudig, blijft staan voor compatibiliteit)
 app.post('/api/order/finalize', async (req, res) => {
   const { order_id, definitief, email_leverancier } = req.body;
@@ -159,6 +196,8 @@ app.post('/api/order/finalize-all', async (req, res) => {
       });
     }
 
+    await updateVolgendeWeekBeginstock(week);
+
     res.json({ status: 'ok', aantal: regels.length });
   } catch (err) {
     console.error('FOUT bij finalize-all:', err);
@@ -183,6 +222,8 @@ app.post('/api/order/resend', async (req, res) => {
     const tekst = `⚠️ REEDS VERSTUURD — dit is een herhaling van bestelling week ${week}\n\n${regels.join('\n')}`;
 
     await sendOrderMail(email_leverancier, `[REEDS VERSTUURD] Bestelling week ${week}`, tekst);
+
+    await updateVolgendeWeekBeginstock(week);
 
     res.json({ status: 'ok', aantal: regels.length });
   } catch (err) {
