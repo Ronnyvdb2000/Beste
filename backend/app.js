@@ -34,14 +34,41 @@ app.get('/api/products', async (req, res) => {
   }
 });
 
-// STOCK INGAVE
+// STOCK OPHALEN VOOR EEN WEEK (vult bestaande/berekende waarden vooraf in)
+app.get('/api/stock/:week', async (req, res) => {
+  const week = Number(req.params.week);
+  try {
+    const result = await db.execute({
+      sql: `SELECT product_id, stock_aanvang, stock_einde FROM week_stock WHERE week = ?`,
+      args: [week]
+    });
+    res.json(result.rows);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// STOCK INGAVE (upsert: werkt bestaande rij bij, of maakt nieuwe aan)
 app.post('/api/stock', async (req, res) => {
   const { product_id, week, stock_aanvang, stock_einde } = req.body;
   try {
-    await db.execute({
-      sql: `INSERT INTO week_stock (product_id, week, stock_aanvang, stock_einde) VALUES (?, ?, ?, ?)`,
-      args: [product_id, week, stock_aanvang, stock_einde]
+    const bestaandeRes = await db.execute({
+      sql: `SELECT id FROM week_stock WHERE product_id = ? AND week = ?`,
+      args: [product_id, week]
     });
+
+    if (bestaandeRes.rows.length > 0) {
+      await db.execute({
+        sql: `UPDATE week_stock SET stock_aanvang = ?, stock_einde = ? WHERE id = ?`,
+        args: [stock_aanvang, stock_einde, bestaandeRes.rows[0].id]
+      });
+    } else {
+      await db.execute({
+        sql: `INSERT INTO week_stock (product_id, week, stock_aanvang, stock_einde) VALUES (?, ?, ?, ?)`,
+        args: [product_id, week, stock_aanvang, stock_einde]
+      });
+    }
+
     const verbruik = stock_aanvang - stock_einde;
     await db.execute({
       sql: `INSERT INTO verbruik (product_id, week, hoeveelheid) VALUES (?, ?, ?)`,
