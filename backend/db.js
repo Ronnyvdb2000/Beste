@@ -34,8 +34,17 @@ async function initDb() {
     voorstel INTEGER NOT NULL,
     definitief INTEGER,
     verstuurd INTEGER DEFAULT 0,
+    created_at TEXT DEFAULT (datetime('now')),
     FOREIGN KEY (product_id) REFERENCES producten(id)
   )`);
+
+  // Voeg created_at toe als de tabel al bestond zonder deze kolom
+  try {
+    await db.execute(`ALTER TABLE bestellingen ADD COLUMN created_at TEXT DEFAULT (datetime('now'))`);
+  } catch (e) {
+    // kolom bestaat al — negeren
+  }
+
   console.log('Database tabellen klaar.');
 }
 
