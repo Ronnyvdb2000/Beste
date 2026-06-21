@@ -37,12 +37,14 @@ async function initDb() {
     FOREIGN KEY (product_id) REFERENCES producten(id)
   )`);
 
-  // created_at kolom toevoegen indien ze nog niet bestaat (zonder SQL-default, want dat faalt op Turso bij ALTER)
+  // created_at kolom toevoegen indien ze nog niet bestaat
+  // (DEFAULT CURRENT_TIMESTAMP wordt automatisch door de database zelf ingevuld,
+  // geen actie nodig vanuit de app of de gebruiker)
   try {
     const info = await db.execute(`PRAGMA table_info(bestellingen)`);
     const heeftKolom = info.rows.some(r => r.name === 'created_at');
     if (!heeftKolom) {
-      await db.execute(`ALTER TABLE bestellingen ADD COLUMN created_at TEXT`);
+      await db.execute(`ALTER TABLE bestellingen ADD COLUMN created_at TEXT DEFAULT CURRENT_TIMESTAMP`);
       console.log('Kolom created_at toegevoegd aan bestellingen.');
     }
   } catch (e) {
