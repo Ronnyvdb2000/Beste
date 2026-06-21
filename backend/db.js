@@ -34,15 +34,19 @@ async function initDb() {
     voorstel INTEGER NOT NULL,
     definitief INTEGER,
     verstuurd INTEGER DEFAULT 0,
-    created_at TEXT DEFAULT (datetime('now')),
     FOREIGN KEY (product_id) REFERENCES producten(id)
   )`);
 
-  // Voeg created_at toe als de tabel al bestond zonder deze kolom
+  // created_at kolom toevoegen indien ze nog niet bestaat (zonder SQL-default, want dat faalt op Turso bij ALTER)
   try {
-    await db.execute(`ALTER TABLE bestellingen ADD COLUMN created_at TEXT DEFAULT (datetime('now'))`);
+    const info = await db.execute(`PRAGMA table_info(bestellingen)`);
+    const heeftKolom = info.rows.some(r => r.name === 'created_at');
+    if (!heeftKolom) {
+      await db.execute(`ALTER TABLE bestellingen ADD COLUMN created_at TEXT`);
+      console.log('Kolom created_at toegevoegd aan bestellingen.');
+    }
   } catch (e) {
-    // kolom bestaat al — negeren
+    console.error('Kon created_at kolom niet toevoegen:', e.message);
   }
 
   console.log('Database tabellen klaar.');
