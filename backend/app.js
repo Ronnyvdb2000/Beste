@@ -261,17 +261,24 @@ app.post('/api/order/finalize-all', async (req, res) => {
   }
 });
 
-// OPNIEUW VERSTUREN (zelfde week, eventueel met aangepaste hoeveelheden, mail bevat melding "reeds verstuurd")
+// OPNIEUW VERSTUREN (zelfde week, eventueel met aangepaste/nieuwe hoeveelheden, mail bevat melding "reeds verstuurd")
 app.post('/api/order/resend', async (req, res) => {
   const { week, email_leverancier, orders } = req.body;
-  // orders (optioneel) = [{ order_id, definitief }, ...] — aangepaste hoeveelheden
+  // orders (optioneel) = [{ order_id, definitief }, ...] — aangepaste of nieuw toegevoegde hoeveelheden
   try {
     if (Array.isArray(orders) && orders.length > 0) {
       for (const o of orders) {
-        await db.execute({
-          sql: `UPDATE bestellingen SET definitief = ? WHERE id = ?`,
-          args: [o.definitief, o.order_id]
-        });
+        if (o.definitief > 0) {
+          await db.execute({
+            sql: `UPDATE bestellingen SET definitief = ?, verstuurd = 1 WHERE id = ?`,
+            args: [o.definitief, o.order_id]
+          });
+        } else {
+          await db.execute({
+            sql: `UPDATE bestellingen SET definitief = ? WHERE id = ?`,
+            args: [o.definitief, o.order_id]
+          });
+        }
       }
     }
 
