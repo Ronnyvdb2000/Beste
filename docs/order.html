@@ -167,21 +167,25 @@
             const res = await apiPost('/order/proposal', { product_id: p.id, week });
             voorstellen.push({ product_id: p.id, naam: p.naam, voorstel: res.voorstel, order_id: res.id });
 
+            const geenStockTag = !res.heeftStock ? ' <span style="color:#dc2626; font-size:0.75rem;">(geen stock ingegeven)</span>' : '';
+
             const tr = document.createElement('tr');
             tr.id = `rij_${res.id}`;
             tr.innerHTML = `
-              <td>${p.naam}</td>
+              <td>${p.naam}${geenStockTag}</td>
               <td class="voorstel-cel">${res.voorstel}</td>
               <td><input type="number" id="definitief_${res.id}" value="${res.voorstel}" min="0"></td>
             `;
             tbody.appendChild(tr);
           } catch (e) {
-            // product overslaan als er geen stock is
+            const tr = document.createElement('tr');
+            tr.innerHTML = `
+              <td>${p.naam} <span style="color:#dc2626; font-size:0.75rem;">(fout bij laden)</span></td>
+              <td class="voorstel-cel">0</td>
+              <td><input type="number" value="0" min="0" disabled></td>
+            `;
+            tbody.appendChild(tr);
           }
-        }
-
-        if (tbody.innerHTML === '') {
-          tbody.innerHTML = '<tr><td colspan="3" style="text-align:center; color:#888;">Geen voorstellen — stock eerst ingeven voor week ' + week + '.</td></tr>';
         }
 
       } catch (err) {
