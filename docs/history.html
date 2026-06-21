@@ -49,7 +49,40 @@
     .nav-links { margin-top: 2rem; display: flex; gap: 1rem; }
     .nav-links a { color: #3b82f6; text-decoration: none; font-weight: 500; }
     .nav-links a:hover { text-decoration: underline; }
-    #laad-msg { color: #888; margin-top: 1rem; }
+    .filter-bar {
+      display: flex;
+      align-items: center;
+      gap: 1rem;
+      margin-bottom: 1rem;
+      background: white;
+      padding: 1rem;
+      border-radius: 10px;
+      box-shadow: 0 1px 4px rgba(0,0,0,0.1);
+      flex-wrap: wrap;
+    }
+    .filter-bar label { font-weight: bold; margin: 0; }
+    .filter-bar input {
+      width: 100px;
+      padding: 6px 10px;
+      border: 1px solid #ccc;
+      border-radius: 6px;
+      font-size: 1rem;
+    }
+    .btn {
+      padding: 8px 18px;
+      border: none;
+      border-radius: 8px;
+      font-size: 0.95rem;
+      font-weight: bold;
+      cursor: pointer;
+      color: white;
+    }
+    .btn-blauw { background-color: #3b82f6; }
+    .btn-blauw:hover { background-color: #2563eb; }
+    .btn-reset {
+      background-color: #6b7280;
+    }
+    .btn-reset:hover { background-color: #4b5563; }
     .resend-bar {
       display: flex;
       align-items: center;
@@ -70,18 +103,10 @@
       font-size: 1rem;
     }
     .resend-bar input[type="email"] { width: 220px; }
-    .btn {
-      padding: 8px 18px;
-      border: none;
-      border-radius: 8px;
-      font-size: 0.95rem;
-      font-weight: bold;
-      cursor: pointer;
-      color: white;
-    }
     .btn-oranje { background-color: #f59e0b; }
     .btn-oranje:hover { background-color: #d97706; }
     #resend-msg { margin-top: 0.8rem; font-weight: bold; }
+    #laad-msg { color: #888; }
   </style>
 </head>
 <body>
@@ -92,6 +117,13 @@
   </script>
 
   <h1>📜 Historiek</h1>
+
+  <div class="filter-bar">
+    <label for="filter-week">Filter op week:</label>
+    <input type="number" id="filter-week" min="1" max="53" placeholder="bv. 23">
+    <button class="btn btn-blauw" onclick="loadHistory()">🔍 Filteren</button>
+    <button class="btn btn-reset" onclick="resetFilter()">↺ Alles tonen</button>
+  </div>
 
   <div class="tabel-wrapper">
     <table>
@@ -127,13 +159,26 @@
 
   <script src="js/api.js"></script>
   <script>
+    function resetFilter() {
+      document.getElementById('filter-week').value = '';
+      loadHistory();
+    }
+
     async function loadHistory() {
       const tbody = document.getElementById('history-body');
+      const filterWeek = document.getElementById('filter-week').value;
+
+      tbody.innerHTML = '<tr><td colspan="6" id="laad-msg">Historiek laden...</td></tr>';
+
       try {
-        const rows = await apiGet('/history');
+        let rows = await apiGet('/history');
+
+        if (filterWeek) {
+          rows = rows.filter(r => String(r.week) === String(Number(filterWeek)));
+        }
 
         if (rows.length === 0) {
-          tbody.innerHTML = '<tr><td colspan="6" style="text-align:center; color:#888;">Nog geen bestellingen gevonden.</td></tr>';
+          tbody.innerHTML = '<tr><td colspan="6" style="text-align:center; color:#888;">Geen bestellingen gevonden' + (filterWeek ? ` voor week ${filterWeek}` : '') + '.</td></tr>';
           return;
         }
 
@@ -178,9 +223,10 @@
         const res = await apiPost('/order/resend', { week, email_leverancier: email });
         msgEl.style.color = 'green';
         msgEl.textContent = `✅ Week ${week} opnieuw verstuurd naar ${email} (${res.aantal} producten, met vermelding "reeds verstuurd").`;
+        loadHistory();
       } catch (err) {
         msgEl.style.color = 'red';
-        msgEl.textContent = '❌ Fout bij opnieuw versturen — controleer of deze week al eerder verstuurd werd.';
+        msgEl.textContent = '❌ ' + (err.message || 'Fout bij opnieuw versturen.');
       }
     }
 
