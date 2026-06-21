@@ -58,9 +58,22 @@
       border-radius: 6px;
       font-size: 1rem;
     }
+    .btn-laden {
+      background-color: #3b82f6;
+      color: white;
+      border: none;
+      padding: 8px 20px;
+      border-radius: 8px;
+      font-size: 1rem;
+      cursor: pointer;
+      font-weight: bold;
+    }
+    .btn-laden:hover {
+      background-color: #2563eb;
+    }
     .btn-opslaan {
       margin-top: 1.2rem;
-      background-color: #3b82f6;
+      background-color: #10b981;
       color: white;
       border: none;
       padding: 12px 30px;
@@ -70,7 +83,13 @@
       font-weight: bold;
     }
     .btn-opslaan:hover {
-      background-color: #2563eb;
+      background-color: #059669;
+    }
+    .auto-tag {
+      font-size: 0.75rem;
+      color: #2563eb;
+      font-weight: normal;
+      display: block;
     }
     #result-msg {
       margin-top: 1rem;
@@ -111,6 +130,7 @@
   <div class="week-bar">
     <label for="week">Weeknummer:</label>
     <input type="number" id="week" min="1" max="53" placeholder="bv. 24" required>
+    <button class="btn-laden" onclick="loadProducts()">🔄 Laad producten</button>
   </div>
 
   <div class="tabel-wrapper">
@@ -123,7 +143,7 @@
         </tr>
       </thead>
       <tbody id="product-rijen">
-        <tr><td colspan="3" style="text-align:center; color:#888;">Producten laden...</td></tr>
+        <tr><td colspan="3" style="text-align:center; color:#888;">Vul een weeknummer in en klik op "Laad producten".</td></tr>
       </tbody>
     </table>
   </div>
@@ -142,19 +162,45 @@
     let producten = [];
 
     async function loadProducts() {
-      producten = await apiGet('/products');
+      const week = Number(document.getElementById('week').value);
+      const resultEl = document.getElementById('result-msg');
       const tbody = document.getElementById('product-rijen');
-      tbody.innerHTML = '';
 
-      producten.forEach(p => {
-        const tr = document.createElement('tr');
-        tr.innerHTML = `
-          <td>${p.naam}</td>
-          <td><input type="number" id="aanvang_${p.id}" min="0" placeholder="0"></td>
-          <td><input type="number" id="einde_${p.id}" min="0" placeholder="0"></td>
-        `;
-        tbody.appendChild(tr);
-      });
+      if (!week) {
+        resultEl.style.color = 'red';
+        resultEl.textContent = '⚠️ Vul eerst een weeknummer in.';
+        return;
+      }
+
+      resultEl.textContent = '';
+      tbody.innerHTML = '<tr><td colspan="3" style="text-align:center; color:#888;">Producten laden...</td></tr>';
+
+      try {
+        producten = await apiGet('/products');
+        const bestaandeStock = await apiGet(`/stock/${week}`);
+
+        const stockPerProduct = {};
+        bestaandeStock.forEach(s => { stockPerProduct[s.product_id] = s; });
+
+        tbody.innerHTML = '';
+        producten.forEach(p => {
+          const stock = stockPerProduct[p.id];
+          const aanvangWaarde = stock ? stock.stock_aanvang : '';
+          const eindeWaarde = (stock && stock.stock_einde !== null && stock.stock_einde !== 0) ? stock.stock_einde : '';
+          const autoTag = stock ? '<span class="auto-tag">automatisch ingevuld</span>' : '';
+
+          const tr = document.createElement('tr');
+          tr.innerHTML = `
+            <td>${p.naam}${autoTag}</td>
+            <td><input type="number" id="aanvang_${p.id}" min="0" placeholder="0" value="${aanvangWaarde}"></td>
+            <td><input type="number" id="einde_${p.id}" min="0" placeholder="0" value="${eindeWaarde}"></td>
+          `;
+          tbody.appendChild(tr);
+        });
+      } catch (err) {
+        resultEl.style.color = 'red';
+        resultEl.textContent = '❌ Fout bij laden van producten/stock.';
+      }
     }
 
     async function allesOpslaan() {
@@ -204,8 +250,6 @@
       resultEl.style.color = 'green';
       resultEl.textContent = `✅ ${opgeslagen} producten opgeslagen, ${overgeslagen} overgeslagen (leeg).`;
     }
-
-    loadProducts();
   </script>
 </body>
 </html>
