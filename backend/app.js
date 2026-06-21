@@ -74,7 +74,7 @@ app.post('/api/order/proposal', async (req, res) => {
     const voorstel = Math.max(product.minimum_stock - stockRow.stock_einde, 0);
 
     const insertRes = await db.execute({
-      sql: `INSERT INTO bestellingen (product_id, week, voorstel) VALUES (?, ?, ?)`,
+      sql: `INSERT INTO bestellingen (product_id, week, voorstel, created_at) VALUES (?, ?, ?, datetime('now'))`,
       args: [product_id, week, voorstel]
     });
 
@@ -91,13 +91,18 @@ async function updateVolgendeWeekBeginstock(week) {
     args: [week]
   });
 
+  const overgeslagen = [];
+
   for (const order of ordersRes.rows) {
     const eindstockRes = await db.execute({
       sql: `SELECT stock_einde FROM week_stock WHERE product_id = ? AND week = ? ORDER BY id DESC LIMIT 1`,
       args: [order.product_id, week]
     });
     const eindstockRow = eindstockRes.rows[0];
-    if (!eindstockRow) continue;
+    if (!eindstockRow || eindstockRow.stock_einde === null) {
+      overgeslagen.push(order.product_id);
+      continue;
+    }
 
     const nieuweBeginstock = eindstockRow.stock_einde + (order.definitief || 0);
     const volgendeWeek = week + 1;
@@ -114,11 +119,13 @@ async function updateVolgendeWeekBeginstock(week) {
       });
     } else {
       await db.execute({
-        sql: `INSERT INTO week_stock (product_id, week, stock_aanvang, stock_einde) VALUES (?, ?, ?, NULL)`,
+        sql: `INSERT INTO week_stock (product_id, week, stock_aanvang, stock_einde) VALUES (?, ?, ?, 0)`,
         args: [order.product_id, volgendeWeek, nieuweBeginstock]
       });
     }
   }
+
+  return overgeslagen;
 }
 
 // DEFINITIEVE BESTELLING (enkelvoudig, blijft staan voor compatibiliteit)
@@ -196,9 +203,9 @@ app.post('/api/order/finalize-all', async (req, res) => {
       });
     }
 
-    await updateVolgendeWeekBeginstock(week);
+    const overgeslagen = await updateVolgendeWeekBeginstock(week);
 
-    res.json({ status: 'ok', aantal: regels.length });
+    res.json({ status: 'ok', aantal: regels.length, overgeslagen });
   } catch (err) {
     console.error('FOUT bij finalize-all:', err);
     res.status(500).json({ error: 'Mail versturen mislukt', details: err.message });
@@ -223,9 +230,9 @@ app.post('/api/order/resend', async (req, res) => {
 
     await sendOrderMail(email_leverancier, `[REEDS VERSTUURD] Bestelling week ${week}`, tekst);
 
-    await updateVolgendeWeekBeginstock(week);
+    const overgeslagen = await updateVolgendeWeekBeginstock(week);
 
-    res.json({ status: 'ok', aantal: regels.length });
+    res.json({ status: 'ok', aantal: regels.length, overgeslagen });
   } catch (err) {
     console.error('FOUT bij resend:', err);
     res.status(500).json({ error: 'Mail versturen mislukt', details: err.message });
@@ -236,9 +243,9 @@ app.post('/api/order/resend', async (req, res) => {
 app.get('/api/history', async (req, res) => {
   try {
     const result = await db.execute(
-      `SELECT b.id, p.naam, b.week, b.voorstel, b.definitief, b.verstuurd
+      `SELECT b.id, p.naam, b.week, b.voorstel, b.definitief, b.verstuurd, b.created_at
        FROM bestellingen b JOIN producten p ON p.id = b.product_id
-       ORDER BY b.week DESC`
+       ORDER BY b.created_at DESC`
     );
     res.json(result.rows);
   } catch (err) {
