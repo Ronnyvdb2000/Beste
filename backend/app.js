@@ -327,6 +327,33 @@ app.post('/api/order/resend', async (req, res) => {
   }
 });
 
+// VERBRUIK OVERZICHT (producten in rijen, weken in kolommen)
+app.get('/api/verbruik', async (req, res) => {
+  try {
+    const weken = await db.execute(
+      `SELECT DISTINCT week FROM verbruik ORDER BY week`
+    );
+    const verbruikRes = await db.execute(
+      `SELECT v.product_id, p.naam, v.week, v.hoeveelheid
+       FROM verbruik v JOIN producten p ON p.id = v.product_id
+       ORDER BY p.naam, v.week`
+    );
+
+    const weekenLijst = weken.rows.map(r => r.week);
+    const perProduct = {};
+    verbruikRes.rows.forEach(r => {
+      if (!perProduct[r.product_id]) {
+        perProduct[r.product_id] = { naam: r.naam, weken: {} };
+      }
+      perProduct[r.product_id].weken[r.week] = Math.max(0, r.hoeveelheid);
+    });
+
+    res.json({ weken: weekenLijst, producten: Object.values(perProduct) });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
 // HISTORIEK
 app.get('/api/history', async (req, res) => {
   try {
