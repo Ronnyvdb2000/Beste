@@ -264,8 +264,9 @@ app.post('/api/order/finalize-all', async (req, res) => {
 // OPNIEUW VERSTUREN (zelfde week, eventueel met aangepaste/nieuwe hoeveelheden, mail bevat melding "reeds verstuurd")
 app.post('/api/order/resend', async (req, res) => {
   const { week, email_leverancier, orders } = req.body;
-  // orders (optioneel) = [{ order_id, definitief }, ...] — aangepaste of nieuw toegevoegde hoeveelheden
   try {
+    // Stap 1: sla aangepaste hoeveelheden op en markeer als verstuurd indien > 0
+    const bijgewerkt = {}; // product_id -> { naam, definitief }
     if (Array.isArray(orders) && orders.length > 0) {
       for (const o of orders) {
         if (o.definitief > 0) {
@@ -273,6 +274,14 @@ app.post('/api/order/resend', async (req, res) => {
             sql: `UPDATE bestellingen SET definitief = ?, verstuurd = 1 WHERE id = ?`,
             args: [o.definitief, o.order_id]
           });
+          // Naam ophalen voor de mail
+          const naamRes = await db.execute({
+            sql: `SELECT p.naam, b.product_id FROM bestellingen b JOIN producten p ON p.id = b.product_id WHERE b.id = ?`,
+            args: [o.order_id]
+          });
+          if (naamRes.rows[0]) {
+            bijgewerkt[naamRes.rows[0].product_id] = { naam: naamRes.rows[0].naam, definitief: o.definitief };
+          }
         } else {
           await db.execute({
             sql: `UPDATE bestellingen SET definitief = ? WHERE id = ?`,
@@ -282,18 +291,31 @@ app.post('/api/order/resend', async (req, res) => {
       }
     }
 
+    // Stap 2: haal alle verstuurd=1 regels op voor die week
     const result = await db.execute({
-      sql: `SELECT p.naam, b.definitief FROM bestellingen b JOIN producten p ON p.id = b.product_id WHERE b.week = ? AND b.verstuurd = 1`,
+      sql: `SELECT p.naam, b.product_id, b.definitief FROM bestellingen b JOIN producten p ON p.id = b.product_id WHERE b.week = ? AND b.verstuurd = 1`,
       args: [week]
     });
 
-    if (result.rows.length === 0) {
+    // Stap 3: combineer — gebruik bijgewerkte waarden indien aanwezig
+    const regelsMap = {};
+    result.rows.forEach(r => {
+      regelsMap[r.product_id] = { naam: r.naam, definitief: r.definitief };
+    });
+    // Overschrijf met verse waarden uit de orders-array
+    Object.entries(bijgewerkt).forEach(([pid, val]) => {
+      regelsMap[pid] = val;
+    });
+
+    const regels = Object.values(regelsMap)
+      .filter(r => r.definitief > 0)
+      .map(r => `${r.naam}: ${r.definitief}`);
+
+    if (regels.length === 0) {
       return res.status(404).json({ error: `Geen verstuurde bestelling gevonden voor week ${week}` });
     }
 
-    const regels = result.rows.map(r => `${r.naam}: ${r.definitief}`);
     const tekst = `⚠️ REEDS VERSTUURD — dit is een herhaling van bestelling week ${week}\n\n${regels.join('\n')}`;
-
     await sendOrderMail(email_leverancier, `[REEDS VERSTUURD] Bestelling week ${week}`, tekst);
 
     const overgeslagen = await updateVolgendeWeekBeginstock(week);
