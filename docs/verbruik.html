@@ -1,0 +1,188 @@
+<!DOCTYPE html>
+<html lang="nl">
+<head>
+  <meta charset="UTF-8">
+  <title>Stock App - Verbruik</title>
+  <link rel="stylesheet" href="css/style.css">
+  <style>
+    .tabel-wrapper {
+      background: white;
+      border-radius: 10px;
+      box-shadow: 0 1px 4px rgba(0,0,0,0.1);
+      padding: 1rem;
+      overflow-x: auto;
+      margin-top: 1rem;
+    }
+    table {
+      border-collapse: collapse;
+      font-size: 0.9rem;
+      min-width: 100%;
+    }
+    th, td {
+      border: 1px solid #ddd;
+      padding: 7px 12px;
+      text-align: center;
+      white-space: nowrap;
+    }
+    th {
+      background-color: #3b82f6;
+      color: white;
+      font-weight: bold;
+    }
+    td:first-child {
+      text-align: left;
+      font-weight: 500;
+      min-width: 180px;
+      position: sticky;
+      left: 0;
+      background: white;
+      z-index: 1;
+    }
+    th:first-child {
+      position: sticky;
+      left: 0;
+      z-index: 2;
+      background-color: #3b82f6;
+    }
+    tr:nth-child(even) td { background-color: #f1f5f9; }
+    tr:nth-child(even) td:first-child { background-color: #f1f5f9; }
+    td.nul { color: #cbd5e1; }
+    td.hoog { background-color: #dcfce7 !important; color: #166534; font-weight: bold; }
+    .filter-bar {
+      display: flex;
+      align-items: center;
+      gap: 1rem;
+      margin-bottom: 1rem;
+      background: white;
+      padding: 1rem;
+      border-radius: 10px;
+      box-shadow: 0 1px 4px rgba(0,0,0,0.1);
+      flex-wrap: wrap;
+    }
+    .filter-bar label { font-weight: bold; margin: 0; }
+    .filter-bar input {
+      width: 80px;
+      padding: 6px 10px;
+      border: 1px solid #ccc;
+      border-radius: 6px;
+      font-size: 1rem;
+    }
+    .btn {
+      padding: 8px 18px;
+      border: none;
+      border-radius: 8px;
+      font-size: 0.95rem;
+      font-weight: bold;
+      cursor: pointer;
+      color: white;
+    }
+    .btn-blauw { background-color: #3b82f6; }
+    .btn-blauw:hover { background-color: #2563eb; }
+    .btn-reset { background-color: #6b7280; }
+    .btn-reset:hover { background-color: #4b5563; }
+    #laad-msg { color: #888; margin-top: 1rem; }
+    .nav-links { margin-top: 2rem; display: flex; gap: 1rem; flex-wrap: wrap; }
+    .nav-links a { color: #3b82f6; text-decoration: none; font-weight: 500; }
+    .nav-links a:hover { text-decoration: underline; }
+  </style>
+</head>
+<body>
+  <script>
+    if (localStorage.getItem("loggedIn") !== "true") {
+      window.location.href = "index.html";
+    }
+  </script>
+
+  <h1>📊 Verbruik per week</h1>
+
+  <div class="filter-bar">
+    <label>Van week:</label>
+    <input type="number" id="van" min="1" max="53" placeholder="bv. 1">
+    <label>Tot week:</label>
+    <input type="number" id="tot" min="1" max="53" placeholder="bv. 52">
+    <button class="btn btn-blauw" onclick="filterWeken()">🔍 Filteren</button>
+    <button class="btn btn-reset" onclick="resetFilter()">↺ Alles tonen</button>
+  </div>
+
+  <div class="tabel-wrapper">
+    <div id="laad-msg">Verbruik laden...</div>
+    <div id="tabel-container"></div>
+  </div>
+
+  <div class="nav-links">
+    <a href="stock.html">📦 Stock ingeven</a>
+    <a href="order.html">📋 Bestelvoorstel</a>
+    <a href="history.html">📜 Historiek</a>
+    <a href="index.html" onclick="localStorage.removeItem('loggedIn')">🚪 Uitloggen</a>
+  </div>
+
+  <script src="js/api.js"></script>
+  <script>
+    let alleData = null;
+
+    async function laadVerbruik() {
+      const laadMsg = document.getElementById('laad-msg');
+      try {
+        alleData = await apiGet('/verbruik');
+        laadMsg.textContent = '';
+        toonTabel(alleData.weken, alleData.producten);
+      } catch (err) {
+        laadMsg.style.color = 'red';
+        laadMsg.textContent = '❌ Fout bij laden verbruik.';
+      }
+    }
+
+    function filterWeken() {
+      if (!alleData) return;
+      const van = Number(document.getElementById('van').value) || 1;
+      const tot = Number(document.getElementById('tot').value) || 53;
+      const gefilterd = alleData.weken.filter(w => w >= van && w <= tot);
+      toonTabel(gefilterd, alleData.producten);
+    }
+
+    function resetFilter() {
+      document.getElementById('van').value = '';
+      document.getElementById('tot').value = '';
+      if (alleData) toonTabel(alleData.weken, alleData.producten);
+    }
+
+    function toonTabel(weken, producten) {
+      const container = document.getElementById('tabel-container');
+
+      if (weken.length === 0) {
+        container.innerHTML = '<p style="color:#888;">Geen weken gevonden voor dit bereik.</p>';
+        return;
+      }
+
+      // Max per week voor kleurmarkering
+      const maxPerWeek = {};
+      weken.forEach(w => {
+        maxPerWeek[w] = Math.max(...producten.map(p => p.weken[w] || 0));
+      });
+
+      let html = '<table><thead><tr><th>Product</th>';
+      weken.forEach(w => { html += `<th>Week ${w}</th>`; });
+      html += '</tr></thead><tbody>';
+
+      producten.forEach(p => {
+        html += `<tr><td>${p.naam}</td>`;
+        weken.forEach(w => {
+          const val = p.weken[w] !== undefined ? p.weken[w] : null;
+          if (val === null || val === 0) {
+            html += `<td class="nul">-</td>`;
+          } else {
+            const isHoog = maxPerWeek[w] > 0 && val === maxPerWeek[w];
+            html += `<td${isHoog ? ' class="hoog"' : ''}>${val}</td>`;
+          }
+        });
+        html += '</tr>';
+      });
+
+      html += '</tbody></table>';
+      container.innerHTML = html;
+    }
+
+    laadVerbruik();
+  </script>
+</body>
+</html>
