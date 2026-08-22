@@ -21,3 +21,21 @@ async function apiGet(path) {
   }
   return json;
 }
+// Logt ook wanneer een antwoord daadwerkelijk verstuurd is, met duur
+app.use((req, res, next) => {
+  const start = Date.now();
+  res.on('finish', () => {
+    console.log(`${req.method} ${req.path} -> ${res.statusCode} (${Date.now() - start}ms)`);
+  });
+  next();
+});
+
+// Helper: geeft een expliciete fout i.p.v. eeuwig te hangen
+function metTimeout(promise, ms, label) {
+  return Promise.race([
+    promise,
+    new Promise((_, reject) =>
+      setTimeout(() => reject(new Error(`Timeout na ${ms}ms bij ${label}`)), ms)
+    )
+  ]);
+}
