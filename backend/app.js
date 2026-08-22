@@ -12,7 +12,7 @@ app.use((req, res, next) => {
   next();
 });
 
-// NIEUW: logt ook wanneer een antwoord daadwerkelijk verstuurd is, met duur.
+// Logt ook wanneer een antwoord daadwerkelijk verstuurd is, met duur.
 // Dit maakt zichtbaar of/wanneer een aanvraag afgehandeld wordt (of nooit).
 app.use((req, res, next) => {
   const start = Date.now();
@@ -22,7 +22,7 @@ app.use((req, res, next) => {
   next();
 });
 
-// NIEUW: helper die een expliciete fout geeft i.p.v. eeuwig te hangen op een trage/vastgelopen belofte.
+// Helper die een expliciete fout geeft i.p.v. eeuwig te hangen op een trage/vastgelopen belofte.
 function metTimeout(promise, ms, label) {
   return Promise.race([
     promise,
@@ -299,111 +299,3 @@ app.post('/api/order/resend', async (req, res) => {
             sql: `SELECT p.naam, b.product_id FROM bestellingen b JOIN producten p ON p.id = b.product_id WHERE b.id = ?`,
             args: [o.order_id]
           });
-          if (naamRes.rows[0]) {
-            bijgewerkt[naamRes.rows[0].product_id] = { naam: naamRes.rows[0].naam, definitief: o.definitief };
-          }
-        } else {
-          await db.execute({
-            sql: `UPDATE bestellingen SET definitief = ? WHERE id = ?`,
-            args: [o.definitief, o.order_id]
-          });
-        }
-      }
-    }
-
-    // Stap 2: haal alle verstuurd=1 regels op voor die week
-    const result = await db.execute({
-      sql: `SELECT p.naam, b.product_id, b.definitief FROM bestellingen b JOIN producten p ON p.id = b.product_id WHERE b.week = ? AND b.verstuurd = 1`,
-      args: [week]
-    });
-
-    // Stap 3: combineer — gebruik bijgewerkte waarden indien aanwezig
-    const regelsMap = {};
-    result.rows.forEach(r => {
-      regelsMap[r.product_id] = { naam: r.naam, definitief: r.definitief };
-    });
-    // Overschrijf met verse waarden uit de orders-array
-    Object.entries(bijgewerkt).forEach(([pid, val]) => {
-      regelsMap[pid] = val;
-    });
-
-    const regels = Object.values(regelsMap)
-      .filter(r => r.definitief > 0)
-      .map(r => `${r.naam}: ${r.definitief}`);
-
-    if (regels.length === 0) {
-      return res.status(404).json({ error: `Geen verstuurde bestelling gevonden voor week ${week}` });
-    }
-
-    const tekst = `⚠️ REEDS VERSTUURD — dit is een herhaling van bestelling week ${week}\n\n${regels.join('\n')}`;
-    await sendOrderMail(email_leverancier, `[REEDS VERSTUURD] Bestelling week ${week}`, tekst);
-
-    const overgeslagen = await updateVolgendeWeekBeginstock(week);
-
-    res.json({ status: 'ok', aantal: regels.length, overgeslagen });
-  } catch (err) {
-    console.error('FOUT bij resend:', err);
-    res.status(500).json({ error: 'Mail versturen mislukt', details: err.message });
-  }
-});
-
-// VERBRUIK OVERZICHT (producten in rijen, weken in kolommen)
-// AANGEPAST: elke query is nu ingepakt met metTimeout(), zodat een vastlopende
-// databaseverbinding na 10 seconden een DUIDELIJKE foutmelding geeft in de logs
-// in plaats van de aanvraag voor onbepaalde tijd te laten hangen.
-app.get('/api/verbruik', async (req, res) => {
-  try {
-    const weken = await metTimeout(
-      db.execute(`SELECT DISTINCT week FROM verbruik ORDER BY week`),
-      10000,
-      'weken-query'
-    );
-    const verbruikRes = await metTimeout(
-      db.execute(
-        `SELECT v.product_id, p.naam, v.week, v.hoeveelheid
-         FROM verbruik v JOIN producten p ON p.id = v.product_id
-         ORDER BY p.naam, v.week`
-      ),
-      10000,
-      'verbruik-query'
-    );
-
-    const weekenLijst = weken.rows.map(r => r.week);
-    const perProduct = {};
-    verbruikRes.rows.forEach(r => {
-      if (!perProduct[r.product_id]) {
-        perProduct[r.product_id] = { naam: r.naam, weken: {} };
-      }
-      perProduct[r.product_id].weken[r.week] = Math.max(0, r.hoeveelheid);
-    });
-
-    res.json({ weken: weekenLijst, producten: Object.values(perProduct) });
-  } catch (err) {
-    console.error('FOUT bij /api/verbruik:', err.message);
-    res.status(500).json({ error: err.message });
-  }
-});
-
-// HISTORIEK
-app.get('/api/history', async (req, res) => {
-  try {
-    const result = await db.execute(
-      `SELECT b.id, p.naam, b.week, b.voorstel, b.definitief, b.verstuurd, b.created_at
-       FROM bestellingen b JOIN producten p ON p.id = b.product_id
-       ORDER BY b.created_at DESC`
-    );
-    res.json(result.rows);
-  } catch (err) {
-    res.status(500).json({ error: err.message });
-  }
-});
-
-// START
-initDb().then(() => {
-  app.listen(3000, () => {
-    console.log('Backend draait op http://localhost:3000');
-  });
-}).catch(err => {
-  console.error('Database init mislukt:', err);
-  process.exit(1);
-});
