@@ -12,6 +12,26 @@ app.use((req, res, next) => {
   next();
 });
 
+// NIEUW: logt ook wanneer een antwoord daadwerkelijk verstuurd is, met duur.
+// Dit maakt zichtbaar of/wanneer een aanvraag afgehandeld wordt (of nooit).
+app.use((req, res, next) => {
+  const start = Date.now();
+  res.on('finish', () => {
+    console.log(`${req.method} ${req.path} -> ${res.statusCode} (${Date.now() - start}ms)`);
+  });
+  next();
+});
+
+// NIEUW: helper die een expliciete fout geeft i.p.v. eeuwig te hangen op een trage/vastgelopen belofte.
+function metTimeout(promise, ms, label) {
+  return Promise.race([
+    promise,
+    new Promise((_, reject) =>
+      setTimeout(() => reject(new Error(`Timeout na ${ms}ms bij ${label}`)), ms)
+    )
+  ]);
+}
+
 // LOGIN
 app.post('/api/login', (req, res) => {
   const { username, password } = req.body;
@@ -328,15 +348,24 @@ app.post('/api/order/resend', async (req, res) => {
 });
 
 // VERBRUIK OVERZICHT (producten in rijen, weken in kolommen)
+// AANGEPAST: elke query is nu ingepakt met metTimeout(), zodat een vastlopende
+// databaseverbinding na 10 seconden een DUIDELIJKE foutmelding geeft in de logs
+// in plaats van de aanvraag voor onbepaalde tijd te laten hangen.
 app.get('/api/verbruik', async (req, res) => {
   try {
-    const weken = await db.execute(
-      `SELECT DISTINCT week FROM verbruik ORDER BY week`
+    const weken = await metTimeout(
+      db.execute(`SELECT DISTINCT week FROM verbruik ORDER BY week`),
+      10000,
+      'weken-query'
     );
-    const verbruikRes = await db.execute(
-      `SELECT v.product_id, p.naam, v.week, v.hoeveelheid
-       FROM verbruik v JOIN producten p ON p.id = v.product_id
-       ORDER BY p.naam, v.week`
+    const verbruikRes = await metTimeout(
+      db.execute(
+        `SELECT v.product_id, p.naam, v.week, v.hoeveelheid
+         FROM verbruik v JOIN producten p ON p.id = v.product_id
+         ORDER BY p.naam, v.week`
+      ),
+      10000,
+      'verbruik-query'
     );
 
     const weekenLijst = weken.rows.map(r => r.week);
@@ -350,6 +379,7 @@ app.get('/api/verbruik', async (req, res) => {
 
     res.json({ weken: weekenLijst, producten: Object.values(perProduct) });
   } catch (err) {
+    console.error('FOUT bij /api/verbruik:', err.message);
     res.status(500).json({ error: err.message });
   }
 });
